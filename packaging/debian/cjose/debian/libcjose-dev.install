@@ -1,0 +1,4 @@
+#! /usr/bin/dh-exec
+usr/lib/*/libcjose.so
+usr/lib/*/pkgconfig/cjose.pc
+usr/include/cjose/*
