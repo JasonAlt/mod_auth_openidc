@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f doc/doxygen_sqlite3.db
+
+override_dh_auto_configure:
+	dh_auto_configure -- --disable-static
+
+%:
+	dh $@ --with-autotools-dev
+
+.PHONY: override_dh_auto_clean override_dh_auto_configure

@@ -1,0 +1,5 @@
+cjose (0.5.1-1+gcs5.@distro@) @distro@; urgency=low
+
+  * GCSv5 packaging
+
+ -- Globus Toolkit <support@globus.org>  Wed, 12 Jun 2017 10:11:55 -0400
