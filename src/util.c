@@ -1520,6 +1520,62 @@ error_close:
 }
 
 /*
+ * write data to a file
+ */
+apr_byte_t oidc_util_file_write(request_rec *r, const char *path,
+		const char *data) {
+
+	apr_file_t *fd = NULL;
+	apr_status_t rc = APR_SUCCESS;
+	apr_size_t bytes_written = 0;
+	char s_err[128];
+
+	/* try to open the metadata file for writing, creating it if it does not exist */
+	if ((rc = apr_file_open(&fd, path,
+			(APR_FOPEN_WRITE | APR_FOPEN_CREATE | APR_FOPEN_TRUNCATE),
+			APR_OS_DEFAULT, r->pool)) != APR_SUCCESS) {
+		oidc_error(r, "file \"%s\" could not be opened (%s)", path,
+				apr_strerror(rc, s_err, sizeof(s_err)));
+		return FALSE;
+	}
+
+	/* lock the file and move the write pointer to the start of it */
+	apr_file_lock(fd, APR_FLOCK_EXCLUSIVE);
+	apr_off_t begin = 0;
+	apr_file_seek(fd, APR_SET, &begin);
+
+	/* calculate the length of the data, which is a string length */
+	apr_size_t len = strlen(data);
+
+	/* (blocking) write the number of bytes in the buffer */
+	rc = apr_file_write_full(fd, data, len, &bytes_written);
+
+	/* check for a system error */
+	if (rc != APR_SUCCESS) {
+		oidc_error(r, "could not write to: \"%s\" (%s)", path,
+				apr_strerror(rc, s_err, sizeof(s_err)));
+		return FALSE;
+	}
+
+	/* check that all bytes from the header were written */
+	if (bytes_written != len) {
+		oidc_error(r,
+				"could not write enough bytes to: \"%s\", bytes_written (%" APR_SIZE_T_FMT ") != len (%" APR_SIZE_T_FMT ")",
+				path, bytes_written, len);
+		return FALSE;
+	}
+
+	/* unlock and close the written file */
+	apr_file_unlock(fd);
+	apr_file_close(fd);
+
+	oidc_debug(r, "file \"%s\" written; number of bytes (%" APR_SIZE_T_FMT ")",
+			path, len);
+
+	return TRUE;
+}
+
+/*
  * see if two provided issuer identifiers match (cq. ignore trailing slash)
  */
 apr_byte_t oidc_util_issuer_match(const char *a, const char *b) {
@@ -2043,7 +2099,18 @@ int oidc_util_cookie_domain_valid(const char *hostname, char *cookie_domain) {
 }
 
 static const char *oidc_util_hdr_in_get(const request_rec *r, const char *name) {
-	return apr_table_get(r->headers_in, name);
+	const char *value = apr_table_get(r->headers_in, name);
+	if (value)
+		oidc_debug(r, "%s=%s", name, value);
+	return value;
+}
+
+static const char *oidc_util_hdr_in_get_left_most_only(const request_rec *r, const char *name, const char *separator) {
+	char *last = NULL;
+	const char *value = oidc_util_hdr_in_get(r, name);
+	if (value)
+		return apr_strtok(apr_pstrdup(r->pool, value), separator, &last);
+	return NULL;
 }
 
 static void oidc_util_hdr_table_set(const request_rec *r, apr_table_t *table,
@@ -2110,7 +2177,7 @@ const char *oidc_util_hdr_in_user_agent_get(const request_rec *r) {
 }
 
 const char *oidc_util_hdr_in_x_forwarded_for_get(const request_rec *r) {
-	return oidc_util_hdr_in_get(r, OIDC_HTTP_HDR_X_FORWARDED_FOR);
+	return oidc_util_hdr_in_get_left_most_only(r, OIDC_HTTP_HDR_X_FORWARDED_FOR, OIDC_STR_COMMA);
 }
 
 const char *oidc_util_hdr_in_content_type_get(const request_rec *r) {
@@ -2130,15 +2197,15 @@ const char *oidc_util_hdr_in_authorization_get(const request_rec *r) {
 }
 
 const char *oidc_util_hdr_in_x_forwarded_proto_get(const request_rec *r) {
-	return oidc_util_hdr_in_get(r, OIDC_HTTP_HDR_X_FORWARDED_PROTO);
+	return oidc_util_hdr_in_get_left_most_only(r, OIDC_HTTP_HDR_X_FORWARDED_PROTO, OIDC_STR_COMMA);
 }
 
 const char *oidc_util_hdr_in_x_forwarded_port_get(const request_rec *r) {
-	return oidc_util_hdr_in_get(r, OIDC_HTTP_HDR_X_FORWARDED_PORT);
+	return oidc_util_hdr_in_get_left_most_only(r, OIDC_HTTP_HDR_X_FORWARDED_PORT, OIDC_STR_COMMA);
 }
 
 const char *oidc_util_hdr_in_x_forwarded_host_get(const request_rec *r) {
-	return oidc_util_hdr_in_get(r, OIDC_HTTP_HDR_X_FORWARDED_HOST);
+	return oidc_util_hdr_in_get_left_most_only(r, OIDC_HTTP_HDR_X_FORWARDED_HOST, OIDC_STR_COMMA);
 }
 
 const char *oidc_util_hdr_in_host_get(const request_rec *r) {

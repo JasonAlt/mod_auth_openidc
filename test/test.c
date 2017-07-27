@@ -867,7 +867,7 @@ static char *test_jwt_decrypt(apr_pool_t *pool) {
 			pool, err);
     oidc_jwk_destroy(jwk_s);
 
-	TST_ASSERT_STR("header.alg", jwt->header.alg, "RS256");
+	TST_ASSERT_STR("header.alg", jwt->header.alg, CJOSE_HDR_ALG_RS256);
 	TST_ASSERT_STR("payload.iss", jwt->payload.iss, "joe");
 	TST_ASSERT_LONG("payload.exp", (long )jwt->payload.exp, 1300819380L);
 
@@ -1189,10 +1189,14 @@ static char * test_current_url(request_rec *r) {
 	url = oidc_get_current_url(r);
 	TST_ASSERT_STR("test_headers (5)", url, "http://www.outer.com:321");
 
+	apr_table_set(r->headers_in, "X-Forwarded-Proto", "https , http");
+	url = oidc_get_current_url(r);
+	TST_ASSERT_STR("test_headers (6)", url, "https://www.outer.com:321");
+
 	apr_table_unset(r->headers_in, "X-Forwarded-Host");
 	apr_table_unset(r->headers_in, "X-Forwarded-Port");
 	url = oidc_get_current_url(r);
-	TST_ASSERT_STR("test_headers (6)", url, "http://www.example.com");
+	TST_ASSERT_STR("test_headers (7)", url, "https://www.example.com");
 
 	return 0;
 }
