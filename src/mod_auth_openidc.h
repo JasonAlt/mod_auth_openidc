@@ -150,7 +150,7 @@ APLOG_USE_MODULE(auth_openidc);
 #define OIDC_AUTH_REQUEST_METHOD_POST 1
 
 /* prefix of the cookie that binds the state in the authorization request/response to the browser */
-#define OIDCStateCookiePrefix  "mod_auth_openidc_state_"
+#define OIDC_STATE_COOKIE_PREFIX  "mod_auth_openidc_state_"
 
 /* default prefix for information passed in HTTP headers */
 #define OIDC_DEFAULT_HEADER_PREFIX "OIDC_"
@@ -204,8 +204,8 @@ APLOG_USE_MODULE(auth_openidc);
 #define OIDC_COOKIE_EXT_SAME_SITE_LAX    "SameSite=Lax"
 #define OIDC_COOKIE_EXT_SAME_SITE_STRICT "SameSite=Strict"
 
-/* draft-campbell-tokbind-ttrp-00 */
-#define OIDC_TB_CFG_PROVIDED_ENV_VAR     "Provided-Token-Binding-ID"
+/* https://tools.ietf.org/html/draft-ietf-tokbind-ttrp-01 */
+#define OIDC_TB_CFG_PROVIDED_ENV_VAR     "Sec-Provided-Token-Binding-ID"
 
 #define OIDC_TOKEN_BINDING_POLICY_DISABLED  0
 #define OIDC_TOKEN_BINDING_POLICY_OPTIONAL  1
@@ -277,11 +277,14 @@ typedef struct oidc_provider_t {
 	char *request_object;
 	int auth_request_method;
 	int token_binding_policy;
+
+	int issuer_specific_redirect_uri;
 } oidc_provider_t ;
 
 typedef struct oidc_remote_user_claim_t {
 	const char *claim_name;
 	const char *reg_exp;
+	const char *replace;
 } oidc_remote_user_claim_t;
 
 typedef struct oidc_oauth_t {
@@ -404,7 +407,8 @@ apr_byte_t oidc_post_preserve_javascript(request_rec *r, const char *location, c
 void oidc_scrub_headers(request_rec *r);
 void oidc_strip_cookies(request_rec *r);
 int oidc_content_handler(request_rec *r);
-apr_byte_t oidc_get_remote_user(request_rec *r, const char *claim_name, const char *reg_exp, json_t *json, char **request_user);
+apr_byte_t oidc_get_remote_user(request_rec *r, const char *claim_name, const char *replace, const char *reg_exp,
+                                json_t *json, char **request_user);
 
 #define OIDC_REDIRECT_URI_REQUEST_INFO             "info"
 #define OIDC_REDIRECT_URI_REQUEST_LOGOUT           "logout"
@@ -479,6 +483,7 @@ apr_byte_t oidc_oauth_get_bearer_token(request_rec *r, const char **access_token
 #define OIDC_PROTO_CLIENT_SECRET_POST  "client_secret_post"
 #define OIDC_PROTO_CLIENT_SECRET_JWT   "client_secret_jwt"
 #define OIDC_PROTO_PRIVATE_KEY_JWT     "private_key_jwt"
+#define OIDC_PROTO_ENDPOINT_AUTH_NONE  "none"
 
 #define OIDC_PROTO_BEARER  "Bearer"
 
@@ -674,6 +679,7 @@ int oidc_base64url_decode(apr_pool_t *pool, char **dst, const char *src);
 const char *oidc_get_current_url_host(request_rec *r);
 char *oidc_get_current_url(request_rec *r);
 const char *oidc_get_redirect_uri(request_rec *r, oidc_cfg *c);
+const char *oidc_get_redirect_uri_iss(request_rec *r, oidc_cfg *c, oidc_provider_t *provider);
 char *oidc_url_encode(const request_rec *r, const char *str, const char *charsToEncode);
 char *oidc_normalize_header_name(const request_rec *r, const char *str);
 void oidc_util_set_cookie(request_rec *r, const char *cookieName, const char *cookieValue, apr_time_t expires, const char *ext);
@@ -705,9 +711,11 @@ apr_byte_t oidc_util_spaced_string_equals(apr_pool_t *pool, const char *a, const
 apr_byte_t oidc_util_spaced_string_contains(apr_pool_t *pool, const char *str, const char *match);
 apr_byte_t oidc_json_object_get_string(apr_pool_t *pool, json_t *json, const char *name, char **value, const char *default_value);
 apr_byte_t oidc_json_object_get_int(apr_pool_t *pool, json_t *json, const char *name, int *value, const int default_value);
+apr_byte_t oidc_json_object_get_bool(apr_pool_t *pool, json_t *json, const char *name, int *value, const int default_value);
 char *oidc_util_html_escape(apr_pool_t *pool, const char *input);
 void oidc_util_table_add_query_encoded_params(apr_pool_t *pool, apr_table_t *table, const char *params);
 apr_hash_t * oidc_util_merge_key_sets(apr_pool_t *pool, apr_hash_t *k1, apr_hash_t *k2);
+apr_byte_t oidc_util_regexp_substitute(apr_pool_t *pool, const char *input, const char *regexp, const char *replace, char **output, char **error_str);
 apr_byte_t oidc_util_regexp_first_match(apr_pool_t *pool, const char *input, const char *regexp, char **output, char **error_str);
 apr_byte_t oidc_util_json_merge(request_rec *r, json_t *src, json_t *dst);
 int oidc_util_cookie_domain_valid(const char *hostname, char *cookie_domain);
@@ -720,6 +728,7 @@ apr_byte_t oidc_util_create_symmetric_key(request_rec *r, const char *client_sec
 apr_hash_t * oidc_util_merge_symmetric_key(apr_pool_t *pool, apr_hash_t *private_keys, oidc_jwk_t *jwk);
 const char *oidc_util_get_provided_token_binding_id(const request_rec *r);
 char *oidc_util_http_query_encoded_url(request_rec *r, const char *url, const apr_table_t *params);
+char *oidc_util_get_full_path(apr_pool_t *pool, const char *abs_or_rel_filename);
 
 /* HTTP header constants */
 #define OIDC_HTTP_HDR_COOKIE							"Cookie"

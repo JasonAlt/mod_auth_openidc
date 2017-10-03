@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+DPKG_EXPORT_BUILDFLAGS = 1
+export DH_VERBOSE=1
+include /usr/share/dpkg/default.mk
+
+pkg=libapache2-mod-auth-openidc
+docdir=/usr/share/doc
+pkgdocdir=$(docdir)/$(pkg)
+
+override_dh_auto_install:
+	dh_apache2
+
+override_dh_auto_configure:
+	dh_auto_configure -- --docdir=$(pkgdocdir)
+
+%:
+	dh $@  --with autotools-dev --with apache2
+
+.PHONY: override_dh_auto_install override_dh_auto_configure

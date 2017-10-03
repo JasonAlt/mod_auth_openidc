@@ -159,6 +159,8 @@
 #define OIDC_DEFAULT_PROVIDER_TOKEN_BINDING_POLICY OIDC_TOKEN_BINDING_POLICY_OPTIONAL
 /* define the default HTTP method used to send the authentication request to the provider */
 #define OIDC_DEFAULT_AUTH_REQUEST_METHOD OIDC_AUTH_REQUEST_METHOD_GET
+/* define whether the issuer will be added to the redirect uri by default to mitigate the IDP mixup attack */
+#define OIDC_DEFAULT_PROVIDER_ISSUER_SPECIFIC_REDIRECT_URI 0
 
 #define OIDCProviderMetadataURL              "OIDCProviderMetadataURL"
 #define OIDCProviderIssuer                   "OIDCProviderIssuer"
@@ -621,6 +623,8 @@ static const char *oidc_set_public_key_files(cmd_parms *cmd, void *struct_ptr,
 	if (rv != NULL)
 		return rv;
 
+	fname = oidc_util_get_full_path(cmd->pool, fname);
+
 	if (oidc_jwk_parse_rsa_public_key(cmd->pool, kid, fname, &jwk,
 			&err) == FALSE) {
 		return apr_psprintf(cmd->pool,
@@ -687,6 +691,8 @@ static const char *oidc_set_private_key_files_enc(cmd_parms *cmd, void *dummy,
 			&fname_len, FALSE);
 	if (rv != NULL)
 		return rv;
+
+	fname = oidc_util_get_full_path(cmd->pool, fname);
 
 	if (oidc_jwk_parse_rsa_private_key(cmd->pool, kid, fname, &jwk,
 			&err) == FALSE) {
@@ -799,7 +805,7 @@ static const char *oidc_set_preserve_post(cmd_parms *cmd, void *m,
  * set the remote user name claims, optionally plus the regular expression applied to it
  */
 static const char *oidc_set_remote_user_claim(cmd_parms *cmd, void *struct_ptr,
-		const char *v1, const char *v2) {
+		const char *v1, const char *v2, const char *v3) {
 	oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(
 			cmd->server->module_config, &auth_openidc_module);
 
@@ -810,6 +816,8 @@ static const char *oidc_set_remote_user_claim(cmd_parms *cmd, void *struct_ptr,
 	remote_user_claim->claim_name = v1;
 	if (v2)
 		remote_user_claim->reg_exp = v2;
+	if (v3)
+		remote_user_claim->replace = v3;
 
 	return NULL;
 }
@@ -1033,6 +1041,7 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->oauth.remote_user_claim.claim_name =
 			OIDC_DEFAULT_OAUTH_CLAIM_REMOTE_USER;
 	c->oauth.remote_user_claim.reg_exp = NULL;
+	c->oauth.remote_user_claim.replace = NULL;
 
 	c->oauth.verify_jwks_uri = NULL;
 	c->oauth.verify_public_keys = NULL;
@@ -1069,6 +1078,7 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->claim_prefix = NULL;
 	c->remote_user_claim.claim_name = OIDC_DEFAULT_CLAIM_REMOTE_USER;
 	c->remote_user_claim.reg_exp = NULL;
+	c->remote_user_claim.replace = NULL;
 	c->pass_idtoken_as = OIDC_PASS_IDTOKEN_AS_CLAIMS;
 	c->cookie_http_only = OIDC_DEFAULT_COOKIE_HTTPONLY;
 	c->cookie_same_site = OIDC_DEFAULT_COOKIE_SAME_SITE;
@@ -1093,6 +1103,9 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->black_listed_claims = NULL;
 	c->white_listed_claims = NULL;
 	c->extensions = NULL;
+
+	c->provider.issuer_specific_redirect_uri =
+			OIDC_DEFAULT_PROVIDER_ISSUER_SPECIFIC_REDIRECT_URI;
 
 	return c;
 }
@@ -1339,6 +1352,10 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->oauth.remote_user_claim.reg_exp != NULL ?
 					add->oauth.remote_user_claim.reg_exp :
 					base->oauth.remote_user_claim.reg_exp;
+	c->oauth.remote_user_claim.replace =
+			add->oauth.remote_user_claim.replace != NULL ?
+					add->oauth.remote_user_claim.replace :
+					base->oauth.remote_user_claim.replace;
 
 	c->oauth.verify_jwks_uri =
 			add->oauth.verify_jwks_uri != NULL ?
@@ -1445,6 +1462,10 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->remote_user_claim.reg_exp != NULL ?
 					add->remote_user_claim.reg_exp :
 					base->remote_user_claim.reg_exp;
+	c->remote_user_claim.replace =
+			add->remote_user_claim.replace != NULL ?
+					add->remote_user_claim.replace :
+					base->remote_user_claim.replace;
 	c->pass_idtoken_as =
 			add->pass_idtoken_as != OIDC_PASS_IDTOKEN_AS_CLAIMS ?
 					add->pass_idtoken_as : base->pass_idtoken_as;
@@ -1502,10 +1523,15 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 	c->white_listed_claims =
 			add->white_listed_claims != NULL ?
 					add->white_listed_claims : base->white_listed_claims;
-
 	c->extensions =
 			add->extensions != NULL ?
 					add->extensions : base->extensions;
+	c->provider.issuer_specific_redirect_uri =
+			add->provider.issuer_specific_redirect_uri
+			!= OIDC_DEFAULT_PROVIDER_ISSUER_SPECIFIC_REDIRECT_URI ?
+					add->provider.issuer_specific_redirect_uri :
+					base->provider.issuer_specific_redirect_uri;
+
 	return c;
 }
 
@@ -1949,8 +1975,7 @@ static void oidc_ssl_id_callback(CRYPTO_THREADID *id) {
 
 #endif /* defined(OPENSSL_THREADS) && APR_HAS_THREADS */
 
-static apr_status_t oidc_cleanup(void *data) {
-
+static apr_status_t oidc_cleanup_child(void *data) {
 	server_rec *sp = (server_rec *) data;
 	while (sp != NULL) {
 		oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(sp->module_config,
@@ -1970,6 +1995,13 @@ static apr_status_t oidc_cleanup(void *data) {
 
 		sp = sp->next;
 	}
+
+	return APR_SUCCESS;
+}
+
+static apr_status_t oidc_cleanup_parent(void *data) {
+
+	oidc_cleanup_child(data);
 
 #if (defined (OPENSSL_THREADS) && APR_HAS_THREADS)
 	if (CRYPTO_get_locking_callback() == oidc_ssl_locking_callback)
@@ -2058,7 +2090,7 @@ static int oidc_post_config(apr_pool_t *pool, apr_pool_t *p1, apr_pool_t *p2,
 	}
 #endif /* OPENSSL_NO_THREADID */
 #endif /* defined(OPENSSL_THREADS) && APR_HAS_THREADS */
-	apr_pool_cleanup_register(pool, s, oidc_cleanup, apr_pool_cleanup_null);
+	apr_pool_cleanup_register(pool, s, oidc_cleanup_parent, apr_pool_cleanup_null);
 
 	server_rec *sp = s;
 	while (sp != NULL) {
@@ -2109,16 +2141,18 @@ static const authz_provider oidc_authz_claims_expr_provider = {
  * initialize cache context in child process if required
  */
 static void oidc_child_init(apr_pool_t *p, server_rec *s) {
-	while (s != NULL) {
-		oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(s->module_config,
+	server_rec *sp = s;
+	while (sp != NULL) {
+		oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(sp->module_config,
 				&auth_openidc_module);
 		if (cfg->cache->child_init != NULL) {
-			if (cfg->cache->child_init(p, s) != APR_SUCCESS) {
-				oidc_serror(s, "cfg->cache->child_init failed");
+			if (cfg->cache->child_init(p, sp) != APR_SUCCESS) {
+				oidc_serror(sp, "cfg->cache->child_init failed");
 			}
 		}
-		s = s->next;
+		sp = sp->next;
 	}
+    apr_pool_cleanup_register(p, s, oidc_cleanup_child, apr_pool_cleanup_null);
 }
 
 /*
@@ -2420,7 +2454,7 @@ const command_rec oidc_config_cmds[] = {
 				(void*)APR_OFFSETOF(oidc_cfg, claim_prefix),
 				RSRC_CONF,
 				"The prefix to use when setting claims in the HTTP headers."),
-		AP_INIT_TAKE12(OIDCRemoteUserClaim,
+		AP_INIT_TAKE123(OIDCRemoteUserClaim,
 				oidc_set_remote_user_claim,
 				(void*)APR_OFFSETOF(oidc_cfg, remote_user_claim),
 				RSRC_CONF,
@@ -2489,7 +2523,7 @@ const command_rec oidc_config_cmds[] = {
 				(void*)APR_OFFSETOF(oidc_cfg, oauth.ssl_validate_server),
 				RSRC_CONF,
 				"Require validation of the OAuth 2.0 AS Validation Endpoint SSL server certificate for successful authentication (On or Off)"),
-		AP_INIT_TAKE12(OIDCOAuthRemoteUserClaim,
+		AP_INIT_TAKE123(OIDCOAuthRemoteUserClaim,
 				oidc_set_remote_user_claim,
 				(void*)APR_OFFSETOF(oidc_cfg, oauth.remote_user_claim),
 				RSRC_CONF,

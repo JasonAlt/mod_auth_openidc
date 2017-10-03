@@ -1,3 +1,49 @@
+09/18/2017
+- release 2.3.2
+
+09/11/2017
+- fix "graceful" restart for shm/redis cache backends; see #296
+- bump to 2.3.2rc8
+
+09/05/2017
+- optionally remove request object parameters from the authorization request URL with "copy_and_remove_from_request"; see #294
+- bump to 2.3.2rc7
+
+08/29/2017
+- properly support JSON boolean values in metadata .conf files
+- add regex substitution for *RemoteUserClaim; thanks @hihellobolke
+- bump to 2.3.2rc6
+
+08/27/2017
+- add issuer specific redirect URI option ("issuer_specific_redirect_uri") for multi-provider setups to mitigate IDP mixup
+- bump to 2.3.2rc5
+
+08/20/2017
+- fix public clients; add endpoint authentication method "none"
+- bump to 2.3.2rc4
+
+08/02/2017
+- update experimental token binding support to https://tools.ietf.org/html/draft-ietf-tokbind-ttrp-01
+  and use header names prefixed with "Sec-"; depends on mod_token_binding >= 0.3.4 now
+- bump to 2.3.2rc3
+
+08/01/2017
+- don't abort when mutex operations fail
+- printout textual descriptions of errors returned by mutex operations
+- bump to 2.3.2rc2
+
+07/28/2017
+- fix issue with the combination of shared memory (shm) cache and using encryption (OIDCCacheEncrypt On)
+  where the cache value would be corrupted after the first (successful) retrieval
+- bump to 2.3.2rc1
+
+07/27/2017
+- support paths that are relative to the Apache root dir for:
+  OIDCHTMLErrorTemplate, OIDCPublicKeyFiles, OIDCPrivateKeyFiles,
+  OIDCOAuthVerifyCertFiles, OIDCClientTokenEndpointCert, OIDCClientTokenEndpointKey,
+  OIDCOAuthIntrospectionEndpointCert and OIDCOAuthIntrospectionEndpointKey
+- bump to 2.3.2rc0
+
 07/19/2017
 - handle multiple values in X-Forwarded-* headers as to better support chains of reverse proxies in front of mod_auth_openidc
 - log request headers in oidc_util_hdr_in_get

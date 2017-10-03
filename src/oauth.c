@@ -90,14 +90,14 @@ static apr_byte_t oidc_oauth_validate_access_token(request_rec *r, oidc_cfg *c,
 							basic_auth, NULL, c->oauth.ssl_validate_server, response,
 							c->http_timeout_long, c->outgoing_proxy,
 							oidc_dir_cfg_pass_cookies(r),
-							c->oauth.introspection_endpoint_tls_client_cert,
-							c->oauth.introspection_endpoint_tls_client_key) :
+							oidc_util_get_full_path(r->pool, c->oauth.introspection_endpoint_tls_client_cert),
+							oidc_util_get_full_path(r->pool, c->oauth.introspection_endpoint_tls_client_key)) :
 							oidc_util_http_post_form(r, c->oauth.introspection_endpoint_url,
 									params, basic_auth, NULL, c->oauth.ssl_validate_server,
 									response, c->http_timeout_long, c->outgoing_proxy,
 									oidc_dir_cfg_pass_cookies(r),
-									c->oauth.introspection_endpoint_tls_client_cert,
-									c->oauth.introspection_endpoint_tls_client_key);
+									oidc_util_get_full_path(r->pool, c->oauth.introspection_endpoint_tls_client_cert),
+									oidc_util_get_full_path(r->pool, c->oauth.introspection_endpoint_tls_client_key));
 }
 
 /*
@@ -558,7 +558,7 @@ static apr_byte_t oidc_oauth_set_request_user(request_rec *r, oidc_cfg *c,
 	char *remote_user = NULL;
 
 	if (oidc_get_remote_user(r, c->oauth.remote_user_claim.claim_name,
-			c->oauth.remote_user_claim.reg_exp, token, &remote_user) == FALSE) {
+			c->oauth.remote_user_claim.reg_exp, c->oauth.remote_user_claim.replace, token, &remote_user) == FALSE) {
 		oidc_error(r,
 				"" OIDCOAuthRemoteUserClaim " is set to \"%s\", but could not set the remote user based the available claims for the user",
 				c->oauth.remote_user_claim.claim_name);
@@ -566,14 +566,12 @@ static apr_byte_t oidc_oauth_set_request_user(request_rec *r, oidc_cfg *c,
 	}
 
 	r->user = remote_user;
-
-	oidc_debug(r, "set user to \"%s\" based on claim: \"%s\"%s", r->user,
-			c->oauth.remote_user_claim.claim_name,
-			c->oauth.remote_user_claim.reg_exp ?
-					apr_psprintf(r->pool, " and expression: \"%s\"",
-							c->oauth.remote_user_claim.reg_exp) :
-							"");
-
+    oidc_debug(r, "set user to \"%s\" based on claim: \"%s\"%s", r->user,
+               c->oauth.remote_user_claim.claim_name,
+               c->oauth.remote_user_claim.reg_exp ?
+               apr_psprintf(r->pool, " and expression: \"%s\" and replace string: \"%s\"",
+                            c->oauth.remote_user_claim.reg_exp, c->oauth.remote_user_claim.replace) :
+               "");
 	return TRUE;
 }
 

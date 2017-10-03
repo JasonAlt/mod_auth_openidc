@@ -1,0 +1,12 @@
+Source: mod-auth-openidc
+Priority: optional
+Maintainer: Globus Toolkit <support@globus.org>
+Build-Depends: debhelper (>= 9), autotools-dev, pkg-config, libapr1-dev, apache2-dev, libjansson-dev, libcurl4-openssl-dev, dh-exec, libcjose-dev, libpcre3-dev, libhiredis-dev, dh-apache2
+Standards-Version: 3.9.6
+Section: web
+
+Package: libapache2-mod-auth-openidc
+Architecture: any
+Provides: mod-auth-openidc-globus-extension
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Apache openid connect module with globus extensions

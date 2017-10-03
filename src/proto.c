@@ -79,15 +79,17 @@ static apr_byte_t oidc_proto_generate_random_string(request_rec *r,
 	return TRUE;
 }
 
+#define OIDC_REQUEST_OJBECT_COPY_FROM_REQUEST "copy_from_request"
+#define OIDC_REQUEST_OJBECT_COPY_AND_REMOVE_FROM_REQUEST "copy_and_remove_from_request"
+
 /*
  * indicates wether a request parameter from the authorization request needs to be
- * copied to the protected request object based on the settings specified in the
- * "copy_from_request" JSON array in the request object
+ * copied and/or deleted to/from the protected request object based on the settings specified
+ * in the "copy_from_request"/"copy_and_remove_from_request" JSON array in the request object
  */
-static apr_byte_t oidc_proto_param_needs_copy(json_t *request_object_config,
-		const char *parameter_name) {
-	json_t *copy_from_request = json_object_get(request_object_config,
-			"copy_from_request");
+static apr_byte_t oidc_proto_param_needs_action(json_t *request_object_config,
+		const char *parameter_name, const char *action) {
+	json_t *copy_from_request = json_object_get(request_object_config, action);
 	size_t index = 0;
 	while (index < json_array_size(copy_from_request)) {
 		json_t *value = json_array_get(copy_from_request, index);
@@ -105,6 +107,7 @@ typedef struct oidc_proto_copy_req_ctx_t {
 	request_rec *r;
 	json_t *request_object_config;
 	oidc_jwt_t *request_object;
+	apr_table_t *params2;
 } oidc_proto_copy_req_ctx_t;
 
 /*
@@ -117,7 +120,10 @@ static int oidc_proto_copy_from_request(void* rec, const char* name,
 
 	oidc_debug(ctx->r, "processing name: %s, value: %s", name, value);
 
-	if (oidc_proto_param_needs_copy(ctx->request_object_config, name)) {
+	if (oidc_proto_param_needs_action(ctx->request_object_config, name,
+			OIDC_REQUEST_OJBECT_COPY_FROM_REQUEST)
+			|| oidc_proto_param_needs_action(ctx->request_object_config, name,
+					OIDC_REQUEST_OJBECT_COPY_AND_REMOVE_FROM_REQUEST)) {
 		json_t *result = NULL;
 		json_error_t json_error;
 		result = json_loads(value, JSON_DECODE_ANY, &json_error);
@@ -129,6 +135,30 @@ static int oidc_proto_copy_from_request(void* rec, const char* name,
 					json_deep_copy(result));
 			json_decref(result);
 		}
+
+		if (oidc_proto_param_needs_action(ctx->request_object_config, name,
+				OIDC_REQUEST_OJBECT_COPY_AND_REMOVE_FROM_REQUEST)) {
+			apr_table_set(ctx->params2, name, name);
+		}
+
+	}
+
+	return 1;
+}
+
+/*
+ * delete a parameter key/value from the authorizion request if the configuration setting says to remove it
+ */
+static int oidc_proto_delete_from_request(void* rec, const char* name,
+		const char* value) {
+	oidc_proto_copy_req_ctx_t *ctx = (oidc_proto_copy_req_ctx_t *) rec;
+
+	oidc_debug(ctx->r, "deleting from query paramters: name: %s, value: %s",
+			name, value);
+
+	if (oidc_proto_param_needs_action(ctx->request_object_config, name,
+			OIDC_REQUEST_OJBECT_COPY_AND_REMOVE_FROM_REQUEST)) {
+		apr_table_unset(ctx->params2, name);
 	}
 
 	return 1;
@@ -226,9 +256,15 @@ char *oidc_proto_create_request_object(request_rec *r,
 			request_object->payload.value.json);
 
 	/* copy parameters from the authorization request as configured in the .conf file */
-	oidc_proto_copy_req_ctx_t data =
-	{ r, request_object_config, request_object };
+	apr_table_t *delete_from_query_params = apr_table_make(r->pool, 0);
+	oidc_proto_copy_req_ctx_t data = { r, request_object_config, request_object,
+			delete_from_query_params };
 	apr_table_do(oidc_proto_copy_from_request, &data, params, NULL);
+
+	/* delete parameters from the query parameters of the authorization request as configured in the .conf file */
+	data.params2 = params;
+	apr_table_do(oidc_proto_delete_from_request, &data,
+			delete_from_query_params, NULL);
 
 	/* debug logging */
 	oidc_debug(r, "request object: %s",
@@ -1282,7 +1318,7 @@ static apr_byte_t oidc_proto_validate_idtoken(request_rec *r,
 	oidc_cfg *cfg = ap_get_module_config(r->server->module_config,
 			&auth_openidc_module);
 
-	oidc_debug(r, "enter, jwt.header=\"%s\", jwt.payload=\%s\", nonce=%s",
+	oidc_debug(r, "enter, jwt.header=\"%s\", jwt.payload=\"%s\", nonce=\"%s\"",
 			jwt->header.value.str, jwt->payload.value.str, nonce);
 
 	/* if a nonce is not passed, we're doing a ("code") flow where the nonce is optional */
@@ -1525,7 +1561,8 @@ char *oidc_proto_peek_jwt_header(request_rec *r,
 				"could not parse first element separated by \".\" from input");
 		return NULL;
 	}
-	input = apr_pstrndup(r->pool, compact_encoded_jwt, p - compact_encoded_jwt);
+	input = apr_pstrmemdup(r->pool, compact_encoded_jwt,
+			strlen(compact_encoded_jwt) - strlen(p));
 	if (oidc_base64url_decode(r->pool, &result, input) <= 0) {
 		oidc_warn(r, "oidc_base64url_decode returned an error");
 		return NULL;
@@ -1805,12 +1842,26 @@ apr_byte_t oidc_proto_token_endpoint_auth(request_rec *r, oidc_cfg *cfg,
 
 	oidc_debug(r, "token_endpoint_auth=%s", token_endpoint_auth);
 
-	// we assume the default is client_secret_basic unless no secret is set
-	if ((token_endpoint_auth == NULL) && (client_secret == NULL))
-		return oidc_proto_endpoint_auth_none(r, client_id, params);
+	// default is client_secret_basic, but only if a client_secret is set,
+	// otherwise we are a public client
+	if ((token_endpoint_auth == NULL) && (client_secret != NULL))
+		token_endpoint_auth = OIDC_PROTO_CLIENT_SECRET_BASIC;
 
 	if ((token_endpoint_auth == NULL) || (apr_strnatcmp(token_endpoint_auth,
-			OIDC_PROTO_CLIENT_SECRET_BASIC) == 0))
+			OIDC_PROTO_ENDPOINT_AUTH_NONE) == 0))
+		return oidc_proto_endpoint_auth_none(r, client_id, params);
+
+	// if no client_secret is set and we don't authenticate using private_key_jwt,
+	// we can only be a public client since the other methods require a client_secret
+	if ((client_secret == NULL) && (apr_strnatcmp(token_endpoint_auth,
+			OIDC_PROTO_PRIVATE_KEY_JWT) != 0)) {
+		oidc_debug(r,
+				"no client secret set and not using private_key_jwt, assume we are a public client");
+		return oidc_proto_endpoint_auth_none(r, client_id, params);
+	}
+
+	if (apr_strnatcmp(token_endpoint_auth,
+			OIDC_PROTO_CLIENT_SECRET_BASIC) == 0)
 		return oidc_proto_endpoint_auth_basic(r, client_id, client_secret,
 				basic_auth_str);
 
@@ -1860,8 +1911,10 @@ static apr_byte_t oidc_proto_token_endpoint_request(request_rec *r,
 			basic_auth, NULL, provider->ssl_validate_server, &response,
 			cfg->http_timeout_long, cfg->outgoing_proxy,
 			oidc_dir_cfg_pass_cookies(r),
-			provider->token_endpoint_tls_client_cert,
-			provider->token_endpoint_tls_client_key) == FALSE) {
+			oidc_util_get_full_path(r->pool,
+					provider->token_endpoint_tls_client_cert),
+					oidc_util_get_full_path(r->pool,
+							provider->token_endpoint_tls_client_key)) == FALSE) {
 		oidc_warn(r, "error when calling the token endpoint (%s)",
 				provider->token_endpoint_url);
 		return FALSE;
@@ -1941,7 +1994,7 @@ static apr_byte_t oidc_proto_resolve_code(request_rec *r, oidc_cfg *cfg,
 			OIDC_PROTO_GRANT_TYPE_AUTHZ_CODE);
 	apr_table_setn(params, OIDC_PROTO_CODE, code);
 	apr_table_set(params, OIDC_PROTO_REDIRECT_URI,
-			oidc_get_redirect_uri(r, cfg));
+			oidc_get_redirect_uri_iss(r, cfg, provider));
 
 	if (code_verifier)
 		apr_table_setn(params, OIDC_PROTO_CODE_VERIFIER, code_verifier);

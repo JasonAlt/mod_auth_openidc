@@ -63,6 +63,7 @@
 #include "mod_auth_openidc.h"
 
 #include <pcre.h>
+#include "pcre_subst.h"
 
 /* hrm, should we get rid of this by adding parameters to the (3) functions? */
 extern module AP_MODULE_DECLARE_DATA auth_openidc_module;
@@ -337,12 +338,12 @@ char *oidc_util_html_escape(apr_pool_t *pool, const char *s) {
 	const char * const replace[] =
 	{ "&amp;", "&apos;", "&quot;", "&gt;", "&lt;", };
 	unsigned int i, j = 0, k, n = 0, len = strlen(chars);
-	int m = 0;
+	unsigned int m = 0;
 	char *r = apr_pcalloc(pool, strlen(s) * 6);
 	for (i = 0; i < strlen(s); i++) {
 		for (n = 0; n < len; n++) {
 			if (s[i] == chars[n]) {
-				m = strlen(replace[n]);
+				m = (unsigned int)strlen(replace[n]);
 				for (k = 0; k < m; k++)
 					r[j + k] = replace[n][k];
 				j += m;
@@ -507,6 +508,26 @@ const char *oidc_get_redirect_uri(request_rec *r, oidc_cfg *cfg) {
 				cfg->redirect_uri, NULL);
 
 		oidc_debug(r, "determined absolute redirect uri: %s", redirect_uri);
+	}
+	return redirect_uri;
+}
+
+/*
+ * determine absolute redirect uri that is issuer specific
+ */
+const char *oidc_get_redirect_uri_iss(request_rec *r, oidc_cfg *cfg,
+		oidc_provider_t *provider) {
+	const char *redirect_uri = oidc_get_redirect_uri(r, cfg);
+	if (provider->issuer_specific_redirect_uri != 0) {
+		redirect_uri = apr_psprintf(r->pool, "%s%s%s=%s", redirect_uri,
+				strchr(redirect_uri, OIDC_CHAR_QUERY) != NULL ?
+						OIDC_STR_AMP :
+						OIDC_STR_QUERY,
+						OIDC_PROTO_ISS, oidc_util_escape_string(r, provider->issuer));
+//						OIDC_PROTO_CLIENT_ID,
+//						oidc_util_escape_string(r, provider->client_id));
+		oidc_debug(r, "determined issuer specific redirect uri: %s",
+				redirect_uri);
 	}
 	return redirect_uri;
 }
@@ -776,7 +797,7 @@ static apr_byte_t oidc_util_http_call(request_rec *r, const char *url,
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 	oidc_debug(r, "HTTP response code=%ld", response_code);
 
-	*response = apr_pstrndup(r->pool, curlBuffer.memory, curlBuffer.size);
+	*response = apr_pstrmemdup(r->pool, curlBuffer.memory, curlBuffer.size);
 
 	/* set and log the response */
 	oidc_debug(r, "response=%s", *response ? *response : "");
@@ -1162,7 +1183,7 @@ apr_byte_t oidc_util_get_request_parameter(request_rec *r, char *name,
 		return FALSE;
 
 	/* not sure why we do this, but better be safe than sorry */
-	args = apr_pstrndup(r->pool, r->args, strlen(r->args));
+	args = apr_pstrmemdup(r->pool, r->args, strlen(r->args));
 
 	p = apr_strtok(args, OIDC_STR_AMP, &tokenizer_ctx);
 	do {
@@ -1322,6 +1343,14 @@ int oidc_util_html_send(request_rec *r, const char *title,
 static char *html_error_template_contents = NULL;
 
 /*
+ * get the full path to a file based on an (already) absolute filename or a filename
+ * that is relative to the Apache root directory
+ */
+char *oidc_util_get_full_path(apr_pool_t *pool, const char *abs_or_rel_filename) {
+	return (abs_or_rel_filename) ? ap_server_root_relative(pool, abs_or_rel_filename) : NULL;
+}
+
+/*
  * send a user-facing error to the browser
  */
 int oidc_util_html_send_error(request_rec *r, const char *html_template,
@@ -1330,6 +1359,8 @@ int oidc_util_html_send_error(request_rec *r, const char *html_template,
 	char *html = "";
 
 	if (html_template != NULL) {
+
+		html_template = oidc_util_get_full_path(r->pool, html_template);
 
 		if (html_error_template_contents == NULL) {
 			int rc = oidc_util_file_read(r, html_template,
@@ -1873,6 +1904,22 @@ apr_byte_t oidc_json_object_get_int(apr_pool_t *pool, json_t *json,
 }
 
 /*
+ * get (optional) boolean from a JSON object
+ */
+apr_byte_t oidc_json_object_get_bool(apr_pool_t *pool, json_t *json,
+		const char *name, int *value, const int default_value) {
+	*value = default_value;
+	if (json != NULL) {
+		json_t *v = json_object_get(json, name);
+		if ((v != NULL) && (json_is_boolean(v))) {
+			*value = json_is_true(v);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/*
  * merge two JSON objects
  */
 apr_byte_t oidc_util_json_merge(request_rec *r, json_t *src, json_t *dst) {
@@ -2009,6 +2056,46 @@ apr_hash_t * oidc_util_merge_key_sets(apr_pool_t *pool, apr_hash_t *k1,
 	if (k2 == NULL)
 		return k1;
 	return apr_hash_overlay(pool, k1, k2);
+}
+
+/*
+ * regexp substitute
+ *   Example:
+ *     regex: "^.*([0-9]+).*$"
+ *     replace: "$1"
+ *     text_original: "match 292 numbers"
+ *     text_replaced: "292"
+ */
+
+apr_byte_t oidc_util_regexp_substitute(
+        apr_pool_t *pool, const char *input,
+        const char *regexp, const char *replace, char **output, char **error_str) {
+
+    const char *errorptr;
+    int erroffset;
+    pcre *preg;
+    char *substituted;
+
+    preg = pcre_compile(regexp, 0, &errorptr, &erroffset, NULL);
+
+    if (preg == NULL) {
+        *error_str = apr_psprintf(pool, "pattern [%s] is not a valid regular expression", regexp);
+        pcre_free(preg);
+        return FALSE;
+    }
+
+    substituted = pcre_subst(preg, NULL, input, (int) strlen(input), 0, 0, replace);
+    if (substituted) {
+        *output = apr_pstrdup(pool, substituted);
+        pcre_free(preg);
+        pcre_free(substituted);
+        return TRUE;
+    } else {
+        *error_str = apr_psprintf(pool,"unknown error could not match string [%s] using pattern [%s] and replace matches in [%s]",
+                                  input, regexp, replace);
+        pcre_free(preg);
+    }
+    return FALSE;
 }
 
 /*
@@ -2169,7 +2256,7 @@ const char *oidc_util_hdr_in_cookie_get(const request_rec *r) {
 }
 
 void oidc_util_hdr_in_cookie_set(const request_rec *r, const char *value) {
-	return oidc_util_hdr_in_set(r, OIDC_HTTP_HDR_COOKIE, value);
+	oidc_util_hdr_in_set(r, OIDC_HTTP_HDR_COOKIE, value);
 }
 
 const char *oidc_util_hdr_in_user_agent_get(const request_rec *r) {
@@ -2213,7 +2300,7 @@ const char *oidc_util_hdr_in_host_get(const request_rec *r) {
 }
 
 void oidc_util_hdr_out_location_set(const request_rec *r, const char *value) {
-	return oidc_util_hdr_out_set(r, OIDC_HTTP_HDR_LOCATION, value);
+	oidc_util_hdr_out_set(r, OIDC_HTTP_HDR_LOCATION, value);
 }
 
 const char *oidc_util_hdr_out_location_get(const request_rec *r) {
