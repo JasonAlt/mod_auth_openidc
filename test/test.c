@@ -1017,7 +1017,7 @@ static char *test_proto_validate_code(request_rec *r) {
 
 static char * test_proto_authorization_request(request_rec *r) {
 
-	oidc_provider_t provider;
+	oidc_provider_t provider = {NULL};
 	provider.issuer = "https://idp.example.com";
 	provider.authorization_endpoint_url = "https://idp.example.com/authorize";
 	provider.scope = "openid";

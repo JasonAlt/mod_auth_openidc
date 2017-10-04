@@ -447,7 +447,7 @@ static int oidc_cache_crypto_encrypt(request_rec *r, const char *plaintext,
 		/* base64url encode the tag and append it in the buffer */
 		e_tag_len = oidc_base64url_encode(r, &e_tag, (const char *) tag,
 				OIDC_CACHE_TAG_LEN, 1);
-		memcpy(p, e_tag, e_tag_len);
+		memmove(p, e_tag, e_tag_len);
 		encoded_len += e_tag_len + 1;
 
 		/* make sure the result is \0 terminated */
