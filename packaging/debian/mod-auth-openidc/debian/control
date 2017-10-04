@@ -1,7 +1,7 @@
 Source: mod-auth-openidc
 Priority: optional
 Maintainer: Globus Toolkit <support@globus.org>
-Build-Depends: debhelper (>= 9), autotools-dev, pkg-config, libapr1-dev, apache2-dev, libjansson-dev, libcurl4-openssl-dev, dh-exec, libcjose-dev, libpcre3-dev, libhiredis-dev, dh-apache2
+Build-Depends: debhelper (>= 9), autotools-dev, pkg-config, libapr1-dev, apache2-dev, libjansson-dev, libcurl4-openssl-dev, dh-exec, libcjose-dev, libpcre3-dev, libhiredis-dev, dh-apache2, libssl-dev
 Standards-Version: 3.9.6
 Section: web
 
