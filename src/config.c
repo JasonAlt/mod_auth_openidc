@@ -1704,7 +1704,17 @@ int oidc_dir_cfg_unautz_action(request_rec *r) {
 char *oidc_dir_cfg_path_auth_request_params(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
-	return dir_cfg->path_auth_request_params;
+        char *r_params = (char *) apr_table_get(
+            r->notes, OIDCAuthRequestParams);
+        char *dir_params = dir_cfg->path_auth_request_params;
+
+        if (r_params != NULL && dir_params != NULL) {
+            return apr_psprintf(r->pool, "%s&%s", r_params, dir_params);
+        } else if (r_params != NULL) {
+            return r_params;
+        } else {
+            return dir_params;
+        }
 }
 
 char *oidc_dir_cfg_path_scope(request_rec *r) {
