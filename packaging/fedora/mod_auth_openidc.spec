@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
 Version:	2.3.2h
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -9,6 +9,7 @@ License:	ASL 2.0
 URL:		https://github.com/pingidentity/mod_auth_openidc
 Source0:	https://github.com/pingidentity/mod_auth_openidc/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
+BuildRequires:	gcc
 BuildRequires:	httpd-devel
 BuildRequires:	openssl-devel
 BuildRequires:	curl-devel
