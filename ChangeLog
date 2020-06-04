@@ -1,3 +1,443 @@
+03/25/2020
+- oops: fix json_deep_copy of claims
+- release 2.4.2.1
+
+03/24/2020
+- fix memory leak in OAuth 2.0 JWT validation; closes #470; thanks Conrad Thukral
+- fix configured private/public key cleanup on process exit
+
+03/21/2020
+- allow for expressions in Require statements, see #469; thanks @wwaaron
+  also see: https://github.com/zmartzone/mod_auth_openidc/wiki/Authorization#expressions-in-require-statements
+- bump to 2.4.2rc5
+
+03/19/2020
+- always refresh keys from jwks_uri when there is no kid in the JWT header
+- bump to 2.4.2rc4
+
+03/15/2020
+- destroy shared memory segments only in parent process; see #458
+- bump to 2.4.2rc3
+
+03/10/2020
+- fix memory leaks introduced by #457
+- bump to 2.4.2rc2
+
+02/19/2020
+- if content was already returned via html/http send then don't return 500
+  but send 200 to avoid extraneous internal error document text to be sent
+  on some Apache 2.4.x versions e.g. CentOS 7
+- bump to 2.4.2rc1
+
+02/03/2020
+- if OIDCPublicKeyFiles contains a certificate, the corresponding x5c, x5t and x5t#256 
+  parameters will be added to the generated jwkset available at "<redirect_uri>?jwks=rsa"
+  thanks @absynth76
+- fix: also add SameSite=None to by-value session cookies
+- bump to 2.4.2rc0
+
+01/30/2020
+- try to fix graceful restart crash; see #458
+- release 2.4.1
+
+01/29/2020
+- always add a SameSite value to the Set-Cookie header to satisfy upcoming Chrome/Firefox changes
+  this can be overridden by using, e.g.:
+    SetEnvIf User-Agent ".*IOS.*" OIDC_SET_COOKIE_APPEND=;
+- release 2.4.1rc6
+
+01/22/2020
+- URL encode logout url in session management JS; thanks Paolo Battino
+- bump to 2.4.1rc5
+
+01/15/2020
+- add value of OIDC_SET_COOKIE_APPEND env var to Set-Cookie headers
+  useful for handling changing/upcoming SameSite behaviors across different browsers, e.g.:
+    SetEnvIf User-Agent ".*IOS.*" OIDC_SET_COOKIE_APPEND=SameSite=None
+- bump to 2.4.1rc4
+
+01/08/2020
+- support 407 option on OIDCUnAuthAction
+
+12/09/2019
+- fix parsing of values from metadata files when the default is non-NULL (e.g. UNSET)
+- enforce OIDCIDTokenSignedResponseAlg and OIDCUserInfoSignedResponseAlg; see #435
+- bump to 2.4.1rc2
+- support login with OIDC session management; address #456
+- bump to 2.4.1rc3
+
+12/05/2019
+- add the possibility to use a public key instead of a certificate for OIDCPublicKeyFiles parameter
+- added an alpine dockerfile =~ 20MB container size
+
+12/04/2019
+- return 200 OK for backchannel logout if session not found
+- bump to 2.4.1rc1
+
+11/19/2019
+- make cleaning of expired state cookies log with a warning rather than an error; thanks Pavel Drobov
+- bump to 2.4.1rc0
+
+10/03/2019
+- improve validation of the post-logout URL parameter on logout; thanks AIMOTO Norihito; closes #449
+- release 2.4.0.3
+- clear any existing chunked cookies when setting a non-chunked cookie; prevents login loops in some scenarios
+
+08/28/2019
+- fixes #447 #441 : changed storing POST params from localStorage to
+  sessionStorage due to some issue of losing data in localStorage in Firefox
+  (private mode) 
+
+08/22/2019
+- release 2.4.0
+
+08/16/2019
+- revert 3d95b4a3fbc493c6acc745626ac33143eb4968bf: don't return early from the content handler
+
+08/15/2019
+- be smart about picking the token endpoint authentication method when not configured explicitly:
+  don't choose the first one published by the OP but prefer client_secret_basic if that is listed as well
+  see: panva/node-oidc-provider#514; thanks @richard-drummond and @panva
+- bump to 2.4.0rc24
+
+08/12/2019
+- fix not clearing claims in session when setting claims to null; closes #445; thanks @FilipVujicic
+
+08/12/2019
+- fix JWT decryption crashing on non-null terminated input
+- bump to 2.4.0rc23
+
+08/09/2019
+- add logout_on_error option to OIDCRefreshAccessTokenBeforeExpiry to kill the session when
+  refreshing an access token fails; thanks @rickyepoderi
+- bump to 2.4.0rc22
+
+08/08/2019
+- no longer use the fixup handler for environment variable setting but do it as part of the authn handler
+- bump to 2.4.0rc21
+
+08/04/2019
+- avoid decoding non-form-encoded POST data; closes #443
+- bump to 2.4.0rc20
+
+08/02/2019
+- return DONE from the content handler early to prevent triggering other content handlers
+- fix `OIDCOAuthAcceptTokenAs post` so POST data is propagated and not lost; see #443
+- bump to 2.4.0rc19
+
+07/10/2019
+- fix RSA JWK "x5c" parsing issue (e.g. when parsing "n" fails): explicitly set the "kid" into to JWK
+- bump to 2.4.0rc18
+
+06/19/2019
+- fix regression bug that includes a HTTP 500 message after rendering content
+- bump to 2.4.0rc17
+
+06/14/2019
+- fix regression bug when no per-provider keys have been configured and private_key_jwt is used
+- bump to 2.4.0rc15
+
+06/06/2019
+- use per-provider signing keys in private_key_jwt authentication towards token endpoint
+- bump to 2.4.0rc14
+
+06/05/2019
+- avoid passing empty key set for JWT decryption (solve but introduced in 2.4.0rc12)
+- bump to 2.4.0rc13
+
+06/03/2019
+- enable per-provider signing and encryption keys; limitations:
+  - for request object signing and id_token decryption only
+  - take the first configured key, no kid specification
+  - no publishing of key information on client endpoints
+  - no userinfo JWT decryption
+  - no composite claims decryption
+  - no backchannel logout with encrypted logout token (inherent)
+- bump to 2.4.0rc12
+
+05/31/2019
+- make sure the content handler is called for every request to the configured Redirect URI so all
+  Apache processing is executed (e.g. setting headers with mod_headers) before returning the response
+  thanks Don Sengpiehl (NB: this may affect browser behavior and backwards compatibility)
+- add ability to view session info in HTML via the session info hook: <redirect_uri)?info=html
+- bump to 2.4.0rc11
+
+05/24/2019
+- fix oidc_proto_html_post auto-post-submit so it no longer results in duplicate parentheses
+  closes #440; thanks @gobreak
+- bump to 2.4.0rc10
+
+05/21/2019
+- log the original URL for expired state cookies, useful for debugging SPA/JS issues
+
+05/17/2019
+- allow removing an access token from the cache ("remove_at_cache") when running in OAuth 2.0 RS mode only
+- support refresh and access tokens revocation from an RFC 7009 endpoint upon OIDC session logout
+- bump to 2.4.0rc9
+
+05/03/2019
+- fix (cached) parsing of OIDCOAuthServerMetadataURL; thanks Lance Fannin
+- bump to 2.4.0rc5
+
+05/02/2019
+- correct caching for OIDCOAuthServerMetadataURL
+- bump to 2.4.0rc4
+
+04/21/2019
+- remove option to skip scrubbing request headers (thus avoiding potentionally insecure setups)
+- bump to 2.4.0rc3
+
+04/19/2019
+- add USE_URANDOM compile time option to use /dev/urandom explicitly for non-blocking random number generation
+  configure with APXS2_OPTS="-DUSE_URANDOM"
+- bump to 2.4.0rc2
+
+04/15/2019
+- add debug logs in oidc_proto_generate_random_string
+- URL-encode client_id/client_secret when using client_secret_basic according to: https://tools.ietf.org/html/rfc6749#section-2.3.1
+- bump to 2.4.0rc1
+
+04/09/2019
+- deprecate the OAuth 2.0 Resource Server functionality
+- bump to 2.4.0rc0
+
+03/13/2019
+- release 2.3.11
+
+02/26/2019
+- add session expiry to session info hook response (and change inactivity timeout key)
+- bump to 2.3.11rc2
+
+02/25/2019
+- add option to dynamically pass query parameters to the authorization request; closes #401
+- bump to 2.3.11rc1
+
+01/31/2019
+- support conditional compilation of memcache support
+- bump to 2.3.11rc0
+
+01/22/2019
+- fix XSS vulnerability CSNC-2019-001 wrt. poll parameter in OIDC Session Management RP iframe; thanks Mischa Bachmann
+- release 2.3.10.2
+
+01/16/2019
+- fix bug in current URL detection where query parameters would be duplicated; see #420; thanks @jreynaert
+- release 2.3.10.1
+
+12/31/2018
+- fix warning printout in oidc_delete_oldest_state_cookies
+- release 2.3.10
+
+12/16/2018
+- fix encryption buffer tag length mismatch
+
+12/06/2018
+- retain the unparsed URL path in current/original URL determination, and thereby preserve
+  and support URL-encoded characters in paths when redirecting back to the original URL
+- add state to code exchange token requests only in multi-provider setups; see #402
+- optionally delete the oldest state cookie(s); see #399
+- bump to 2.3.10rc3
+
+11/29/2018
+- add support for refreshing an access token associated with an OIDC session using OIDCRefreshAccessTokenBeforeExpiry
+- bump to 2.3.10rc0
+
+11/15/2018
+- release 2.3.9
+
+11/13/2018
+- fix parsing of cookie name in OIDCOAuthAcceptTokenAs when the cookie option is not listed last 
+- bump to 2.3.9rc7
+
+11/12/2018
+- fix OAuth 2.0 RS config check when OIDCOAuthServerMetadataURL is set; thanks @psteniusubi
+- bump to 2.3.9rc6
+
+10/24/2018
+- add support for draft https://www.ietf.org/id/draft-ietf-oauth-mtls-12.txt:
+  OAuth 2.0 Mutual TLS Client Certificate Bound Access Tokens
+  when running as an OAuth 2.0 RS, validating cnf["x5t#S256"] claims.
+- bump to 2.3.9rc5
+
+10/17/2018
+- ignore/trim spaces in X-Forwarded-* headers
+- deal with forwarding proxy setups; see #395 ; thanks @archzone
+- bump to 2.3.9rc4
+
+10/02/2018
+- improve OIDC backchannel logout based on config/Discover
+  - add OIDCProviderBackChannelLogoutSupported config primitive
+  - parse/interpret `backchannel_logout_supported` in Discovery document
+- add `id_token_token_binding_cnf`: `tbh` to dynamic client registration metadata
+- bump to 2.3.9rc3
+
+10/01/2018
+- support backchannel logout according to: https://openid.net/specs/openid-connect-backchannel-1_0.html
+- bump to 2.3.9rc2
+
+10/01/2018
+- add test-cmd command to generate hashes base64urlencoded inputs (cnf/tbh claims)
+
+09/30/2018
+- support Token Binding for Access Tokens according to: https://tools.ietf.org/html/draft-ietf-oauth-token-binding
+- bump to 2.3.9rc1
+
+09/16/2018
+- support nested arrays in Require claim authorization evaluation; see #392; thanks @hpbieker
+- bump to 2.3.9rc0
+
+09/12/2018
+- fix return result FALSE when JWT payload parsing fails; see #389; thanks @amdonov
+- release 2.3.8
+
+08/30/2018
+- add LGTM code quality badges, see #385; thanks @xcorail
+- fix 3 LGTM alerts
+
+08/23/2018
+- improve auto-detection of XMLHttpRequests via Accept header; see #331
+- bump to 2.3.8rc5
+
+08/15/2018
+- initialize test_proto_authorization_request properly; see #382; thanks @jdennis
+- add sanity check on provider->auth_request_method; closes #382; thanks @jdennis
+- bump to 2.3.8rc4
+
+08/14/2018
+- allow usage with LibreSSL; closes #380; thanks @hihellobolke
+- bump to 2.3.8rc3
+
+08/04/2018
+- don't return content with 503 since it will turn the HTTP status code into a 200; see #331
+- bump to 2.3.8rc2
+
+08/03/2018
+- add option to set an upper limit to the number of concurrent state cookies via OIDCStateMaxNumberOfCookies; see #331
+- make the default maximum number of parallel state cookies 7 instead of unlimited; see #331
+- bump to 2.3.8rc1
+
+07/30/2018
+- fix using access token as endpoint auth method in introspection calls; closes #377; thanks @skauffmann
+
+07/25/2018
+- fix reading access_token form POST parameters when combined with `AuthType auth-openidc`; see #376; thanks Nicolas Salerno
+- bump to 2.3.8rc0
+
+07/06/2018
+- abort when string length for remote user name substitution is larger than 255 characters
+- release 2.3.7
+
+07/04/2018
+- fix Redis concurrency issue when used with multiple vhosts
+- bump to 2.3.7rc4 and 2.3.7rc5
+
+06/29/2018
+- add support for authorization server metadata with OIDCOAuthServerMetadataURL as in RFC 8414
+- bump to 2.3.7rc3
+
+06/23/2018
+- refactor session object creation
+- bump to 2.3.7rc2
+
+06/22/2018
+- clear session cookie and contents if cache corruption is detected
+- bump to 2.3.7rc0
+- use apr_pstrdup when setting r->user
+- reserve 255 characters in remote username substition instead of 50
+- bump to 2.3.7rc1
+
+06/15/2018
+- add check to detect session cache corruption for server-based caches and cached static metadata
+- release 2.3.6
+
+05/29/2018
+- avoid using pipelining for Redis
+- bump to 2.3.6rc4
+
+05/28/2018
+- send Basic header in OAuth www-authenticate response if that's the only accepted method; thanks @puiterwijk
+
+05/28/2018
+- refactor Redis cache backend to solve issues on AUTH errors: a) memory leak and b) redisGetReply lagging behind
+- adjust copyright year/org
+- bump to 2.3.6rc3
+
+05/23/2018
+- fix buffer overflow in shm cache key set strcpy; thanks @kyprizel
+- bump to 2.3.6rc2
+
+05/22/2018
+- turn missing session_state from warning into a debug statement
+- fix missing "return" on error return from the OP; see #345; thanks @gergan
+- bump to 2.3.6rc1
+
+05/19/2018
+- explicitly set encryption kid so we're compatible with cjose >= 0.6.0
+- bump to 2.3.6rc0
+
+05/18/2018
+- fix encoding of preserved POST data; see #338; thanks @timpuri
+- avoid buffer overflow in shm cache key construction; thanks @kyprizel
+- release 2.3.5
+
+05/08/2018
+- compile with with Libressl; closes #358; thanks @hihellobolke
+- bump to 2.3.5rc0
+
+04/27/2018
+- avoid crash when a relative logout URL parameter is passed in; thanks Vivien Delenne 
+- release 2.3.4
+
+03/22/2018
+- interpret X-Forwarded-Host when doing XSRF protection on the after-logout URL; see #341; thanks @pepe79
+- bump to 2.3.4rc4
+
+02/06/2018
+- add support for passing an access token in a HTTP Basic authentication password; thanks @puiterwijk
+- bump to 2.3.4rc3
+
+01/26/2018
+- send session management Javascript logging to debug; thanks @kerrermanisNL
+
+01/25/2018
+- add Cache-Control no-cache header to authorization requests to avoid replays of state/nonce; see #321
+- bump to 2.3.4rc2
+
+01/23/2018
+- add explicit endpoint authentication method "bearer_access_token"
+
+12/29/2017
+- correct documentation on kid usage for OIDCOAuthVerifyCertFiles; closes #318
+
+12/21/2017
+- fix compiler warnings for OpenSSL 1.1.x
+- bump to 2.3.4rc1
+
+11/21/2017
+- fix bug where endpoint authentication method "private_key_jwt" would not co-exist with "none"
+- bump to 2.3.4rc0
+
+11/16/2017
+- add support for passing userinfo as a JSON object or JWT; see #311
+- release 2.3.3
+
+11/13/2017
+- add support for authentication to the introspection endpoint with a bearer token using OIDCOAuthIntrospectionClientAuthBearerToken; thanks @cristichiru
+- bump to 2.3.3rc3
+
+11/08/2017
+- address a number of static code analysis issues
+- bump to 2.3.3rc2
+
+10/10/2017
+- avoid crash when no scheme is set on OIDCProviderMetadataURL; closes #303; thanks @iconoeugen
+- bump to 2.3.3rc1
+
+10/6/2017
+- avoid crash when no OIDCOAuthClientID is set for remote access token validation
+- don't enforce "iat" slack checks on locally validaed JWT access tokens
+- bump to 2.3.3rc0
+
 09/18/2017
 - release 2.3.2
 
@@ -159,7 +599,7 @@
 03/30/2017
 - merge feature branch back to master:
   - better support for Single Page Applications, see:
-    https://github.com/pingidentity/mod_auth_openidc/wiki/Single-Page-Applications
+    https://github.com/zmartzone/mod_auth_openidc/wiki/Single-Page-Applications
     - add session info hook that is configurable through OIDCInfoHook
     - add "AuthType auth-openidc" option that allows both "oauth20" and "openid-connect" on the same path
   - add encryption for all cache entries instead of just session data through OIDCCacheEncrypt

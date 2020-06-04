@@ -18,6 +18,7 @@
  */
 
 /***************************************************************************
+ * Copyright (C) 2017-2020 ZmartZone IAM
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -63,6 +64,7 @@
 
 #include "cjose/cjose.h"
 
+#define OIDC_JOSE_ALG_SHA1 "sha1"
 #define OIDC_JOSE_ALG_SHA256 "sha256"
 
 /* indicate support for OpenSSL version dependent features */
@@ -73,6 +75,14 @@
 #define OIDC_JOSE_ERROR_TEXT_LENGTH    200
 #define OIDC_JOSE_ERROR_SOURCE_LENGTH   80
 #define OIDC_JOSE_ERROR_FUNCTION_LENGTH 80
+
+/* the OIDC jwk fileds as references in RFC 5741 */
+#define OIDC_JOSE_JWK_KID_STR "kid" //Key ID
+#define OIDC_JOSE_JWK_KTY_STR "kty" //Key type
+#define OIDC_JOSE_JWK_USE_STR "use" //Key usage (enc|sig)
+#define OIDC_JOSE_JWK_X5C_STR "x5c" //X509 certificate chain
+#define OIDC_JOSE_JWK_X5T_STR "x5t" //X509 SHA-1 thumbprint
+#define OIDC_JOSE_JWK_X5T256_STR "x5t#S256" //X509 SHA-256 thumbprint
 
 /* struct for returning errors to the caller */
 typedef struct {
@@ -89,8 +99,8 @@ void _oidc_jose_error_set(oidc_jose_error_t *, const char *, const int,
 		const char *, const char *msg, ...);
 #define oidc_jose_error(err, msg, ...) _oidc_jose_error_set(err, __FILE__, __LINE__, __FUNCTION__, msg, ##__VA_ARGS__)
 #define oidc_jose_error_openssl(err, msg, ...) _oidc_jose_error_set(err, __FILE__, __LINE__, __FUNCTION__, "%s() failed: %s", msg, ERR_error_string(ERR_get_error(), NULL), ##__VA_ARGS__)
-#define oidc_jose_e2s(pool, err) apr_psprintf(pool, "[%s:%d: %s]: %s\n", err.source, err.line, err.function, err.text)
-#define oidc_cjose_e2s(pool, cjose_err) apr_psprintf(pool, "%s [file: %s, function: %s, line: %ld]\n", cjose_err.message, cjose_err.file, cjose_err.function, cjose_err.line)
+#define oidc_jose_e2s(pool, err) apr_psprintf(pool, "[%s:%d: %s]: %s", err.source, err.line, err.function, err.text)
+#define oidc_cjose_e2s(pool, cjose_err) apr_psprintf(pool, "%s [file: %s, function: %s, line: %ld]", cjose_err.message, cjose_err.file, cjose_err.function, cjose_err.line)
 
 /*
  * helper functions
@@ -116,6 +126,9 @@ apr_byte_t oidc_jose_hash_bytes(apr_pool_t *pool, const char *s_digest,
 		const unsigned char *input, unsigned int input_len,
 		unsigned char **output, unsigned int *output_len,
 		oidc_jose_error_t *err);
+apr_byte_t oidc_jose_hash_and_base64url_encode(apr_pool_t *pool,
+		const char *openssl_hash_algo, const char *input, int input_len,
+		char **output);
 
 /* return a string claim value from a JSON object */
 apr_byte_t oidc_jose_get_string(apr_pool_t *pool, json_t *json,
@@ -140,6 +153,14 @@ typedef struct oidc_jwk_t {
 	int kty;
 	/* key identifier */
 	char *kid;
+	/* X.509 Certificate Chain */;
+	unsigned char **x5c;
+	/* the size of the certificate chain */
+	int x5c_count;
+	/* X.509 Certificate SHA-1 Thumbprint */
+	char *x5t;
+	/* X.509 Certificate SHA-256 Thumbprint */
+	char *x5t_S256;
 	/* cjose JWK structure */
 	cjose_jwk_t *cjose_jwk;
 } oidc_jwk_t;
@@ -243,6 +264,10 @@ const char *oidc_jwt_hdr_get(oidc_jwt_t *jwt, const char *key);
 /* return the key type of a JWT */
 int oidc_jwt_alg2kty(oidc_jwt_t *jwt);
 /* return the key size for an algorithm */
-int oidc_alg2keysize(const char *alg);
+unsigned int oidc_alg2keysize(const char *alg);
+
+apr_byte_t oidc_jwk_rsa_bio_to_jwk(apr_pool_t *pool, BIO *input,
+		const char *kid, oidc_jwk_t **jwk, int is_private_key,
+		oidc_jose_error_t *err);
 
 #endif /* MOD_AUTH_OPENIDC_JOSE_H_ */

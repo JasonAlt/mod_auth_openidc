@@ -18,6 +18,7 @@
  */
 
 /***************************************************************************
+ * Copyright (C) 2017-2020 ZmartZone IAM
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -81,6 +82,7 @@ oidc_cache_mutex_t *oidc_cache_mutex_create(apr_pool_t *pool) {
 	ctx->mutex_filename = NULL;
 	ctx->shm = NULL;
 	ctx->sema = NULL;
+	ctx->is_parent = TRUE;
 	return ctx;
 }
 
@@ -131,6 +133,8 @@ apr_byte_t oidc_cache_mutex_post_config(server_rec *s, oidc_cache_mutex_t *m,
 	}
 #endif
 
+	apr_global_mutex_lock(m->mutex);
+
 	rv = apr_shm_create(&m->shm, sizeof(int), NULL, s->process->pool);
 	if (rv != APR_SUCCESS) {
 		oidc_serror(s, "apr_shm_create failed to create shared memory segment");
@@ -139,6 +143,8 @@ apr_byte_t oidc_cache_mutex_post_config(server_rec *s, oidc_cache_mutex_t *m,
 
 	m->sema = apr_shm_baseaddr_get(m->shm);
 	*m->sema = 1;
+
+	apr_global_mutex_unlock(m->mutex);
 
 	return TRUE;
 }
@@ -164,6 +170,7 @@ apr_status_t oidc_cache_mutex_child_init(apr_pool_t *p, server_rec *s,
 		apr_global_mutex_unlock(m->mutex);
 	}
 
+	m->is_parent = FALSE;
 	//oidc_sdebug(s, "semaphore: %d (m=%pp,s=%pp)", *m->sema, m, s);
 
 	return rv;
@@ -172,12 +179,12 @@ apr_status_t oidc_cache_mutex_child_init(apr_pool_t *p, server_rec *s,
 /*
  * global lock
  */
-apr_byte_t oidc_cache_mutex_lock(request_rec *r, oidc_cache_mutex_t *m) {
+apr_byte_t oidc_cache_mutex_lock(server_rec *s, oidc_cache_mutex_t *m) {
 
 	apr_status_t rv = apr_global_mutex_lock(m->mutex);
 
 	if (rv != APR_SUCCESS)
-		oidc_error(r, "apr_global_mutex_lock() failed: %s (%d)",
+		oidc_serror(s, "apr_global_mutex_lock() failed: %s (%d)",
 				oidc_cache_status2str(rv), rv);
 
 	return TRUE;
@@ -186,12 +193,12 @@ apr_byte_t oidc_cache_mutex_lock(request_rec *r, oidc_cache_mutex_t *m) {
 /*
  * global unlock
  */
-apr_byte_t oidc_cache_mutex_unlock(request_rec *r, oidc_cache_mutex_t *m) {
+apr_byte_t oidc_cache_mutex_unlock(server_rec *s, oidc_cache_mutex_t *m) {
 
 	apr_status_t rv = apr_global_mutex_unlock(m->mutex);
 
 	if (rv != APR_SUCCESS)
-		oidc_error(r, "apr_global_mutex_unlock() failed: %s (%d)",
+		oidc_serror(s, "apr_global_mutex_unlock() failed: %s (%d)",
 				oidc_cache_status2str(rv), rv);
 
 	return TRUE;
@@ -209,19 +216,25 @@ apr_byte_t oidc_cache_mutex_destroy(server_rec *s, oidc_cache_mutex_t *m) {
 		apr_global_mutex_lock(m->mutex);
 		(*m->sema)--;
 		//oidc_sdebug(s, "semaphore: %d (m=%pp,s=%pp)", *m->sema, m->mutex, s);
-		apr_global_mutex_unlock(m->mutex);
 
-		if ((m->shm != NULL) && (*m->sema == 0)) {
-
-			rv = apr_global_mutex_destroy(m->mutex);
-			oidc_sdebug(s, "apr_global_mutex_destroy returned :%d", rv);
-			m->mutex = NULL;
+		if ((m->shm != NULL) && (*m->sema == 0) && (m->is_parent == TRUE)) {
 
 			rv = apr_shm_destroy(m->shm);
 			oidc_sdebug(s, "apr_shm_destroy for semaphore returned: %d", rv);
 			m->shm = NULL;
 
+			apr_global_mutex_unlock(m->mutex);
+
+			rv = apr_global_mutex_destroy(m->mutex);
+			oidc_sdebug(s, "apr_global_mutex_destroy returned :%d", rv);
+			m->mutex = NULL;
+
 			rv = APR_SUCCESS;
+
+		} else {
+
+			apr_global_mutex_unlock(m->mutex);
+
 		}
 	}
 
@@ -234,7 +247,7 @@ apr_byte_t oidc_cache_mutex_destroy(server_rec *s, oidc_cache_mutex_t *m) {
 #define OIDC_CACHE_CIPHER							EVP_aes_256_gcm()
 #define OIDC_CACHE_TAG_LEN							16
 
-#if (OPENSSL_VERSION_NUMBER >= 0x10100005L)
+#if (OPENSSL_VERSION_NUMBER >= 0x10100005L && !defined(LIBRESSL_VERSION_NUMBER))
 #define OIDC_CACHE_CRYPTO_GET_TAG					EVP_CTRL_AEAD_GET_TAG
 #define OIDC_CACHE_CRYPTO_SET_TAG					EVP_CTRL_AEAD_SET_TAG
 #define OIDC_CACHE_CRYPTO_SET_IVLEN					EVP_CTRL_AEAD_SET_IVLEN
@@ -436,17 +449,18 @@ static int oidc_cache_crypto_encrypt(request_rec *r, const char *plaintext,
 	if (encoded_len > 0) {
 		p = encoded;
 
+		/* base64url encode the tag */
+		e_tag_len = oidc_base64url_encode(r, &e_tag, (const char *) tag,
+				OIDC_CACHE_TAG_LEN, 1);
+
 		/* now allocated space for the concatenated base64url encoded ciphertext and tag */
-		encoded = apr_pcalloc(r->pool,
-				encoded_len + 1 + OIDC_CACHE_TAG_LEN + 1);
+		encoded = apr_pcalloc(r->pool, encoded_len + 1 + e_tag_len + 1);
 		memcpy(encoded, p, encoded_len);
 		p = encoded + encoded_len;
 		*p = OIDC_CHAR_DOT;
 		p++;
 
-		/* base64url encode the tag and append it in the buffer */
-		e_tag_len = oidc_base64url_encode(r, &e_tag, (const char *) tag,
-				OIDC_CACHE_TAG_LEN, 1);
+		/* append the tag in the buffer */
 		memmove(p, e_tag, e_tag_len);
 		encoded_len += e_tag_len + 1;
 

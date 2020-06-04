@@ -1,3 +1,9 @@
+mod-auth-openidc (1:2.4.2.1globus-1+gcs5.@distro@) @distro@; urgency=low
+
+  * Update to upstream 2.4.2.1
+
+ -- Globus Toolkit <support@globus.org>  Thu, 04 Jun 2020 06:22:02 -0400
+
 mod-auth-openidc (1:2.3.2h-1+gcs5.@distro@) @distro@; urgency=low
 
   * Add inter-module request-specific OIDCAuthRequestParams

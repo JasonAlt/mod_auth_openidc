@@ -1,4 +1,4 @@
-AC_INIT([mod_auth_openidc],[2.3.2h],[hans.zandbelt@zmartzone.eu])
+AC_INIT([mod_auth_openidc],[2.4.2.1globus],[hans.zandbelt@zmartzone.eu])
 
 AC_SUBST(NAMEVER, AC_PACKAGE_TARNAME()-AC_PACKAGE_VERSION())
 
@@ -40,7 +40,7 @@ fi
 # Replace any occurrences of @APXS2@ with the value of $APXS2 in the Makefile.
 AC_SUBST(APXS2)
 
-# Use environment varilable APXS2_OPTS to pass params to APXS2 command
+# Use environment variable APXS2_OPTS to pass params to APXS2 command
 AC_ARG_VAR(APXS2_OPTS, [Additional command line options to pass to apxs2.])
 
 # We need the curl library for HTTP callouts.
@@ -56,6 +56,13 @@ AC_SUBST(OPENSSL_LIBS)
 PKG_CHECK_MODULES(APR, [apr-1, apr-util-1])
 AC_SUBST(APR_CFLAGS)
 AC_SUBST(APR_LIBS)
+
+# older versions of libapr may not have memcache support
+old_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="${APR_CFLAGS} $CPPFLAGS"
+AC_CHECK_HEADERS([apr_memcache.h], [HAVE_MEMCACHE=1], [HAVE_MEMCACHE=0])
+AC_SUBST(HAVE_MEMCACHE)
+CPPFLAGS=$old_CPPFLAGS
 
 # We need Jansson for JSON parsing.
 PKG_CHECK_MODULES(JANSSON, jansson)

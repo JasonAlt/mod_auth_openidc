@@ -18,6 +18,7 @@
  */
 
 /***************************************************************************
+ * Copyright (C) 2017-2020 ZmartZone IAM
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -89,8 +90,6 @@
 #define OIDC_DEFAULT_COOKIE "mod_auth_openidc_session"
 /* default for the HTTP header name in which the remote user name is passed */
 #define OIDC_DEFAULT_AUTHN_HEADER NULL
-/* scrub HTTP headers by default unless overridden (and insecure) */
-#define OIDC_DEFAULT_SCRUB_REQUEST_HEADERS 1
 /* default client_name the client uses for dynamic client registration */
 #define OIDC_DEFAULT_CLIENT_NAME "OpenID Connect Apache Module (mod_auth_openidc)"
 /* timeouts in seconds for HTTP calls that may take a long time */
@@ -103,6 +102,10 @@
 #define OIDC_DEFAULT_SESSION_CLIENT_COOKIE_CHUNK_SIZE 4000
 /* timeout in seconds after which state expires */
 #define OIDC_DEFAULT_STATE_TIMEOUT 300
+/* maximum number of parallel state cookies; 0 means unlimited, until the browser or server gives up */
+#define OIDC_DEFAULT_MAX_NUMBER_OF_STATE_COOKIES 7
+/* default setting for deleting the oldest state cookies */
+#define OIDC_DEFAULT_DELETE_OLDEST_STATE_COOKIES 0
 /* default session inactivity timeout */
 #define OIDC_DEFAULT_SESSION_INACTIVITY_TIMEOUT 300
 /* default session max duration */
@@ -157,101 +160,113 @@
 #define OIDC_DEFAULT_PROVIDER_METADATA_REFRESH_INTERVAL 0
 /* defines the default token binding policy for a provider */
 #define OIDC_DEFAULT_PROVIDER_TOKEN_BINDING_POLICY OIDC_TOKEN_BINDING_POLICY_OPTIONAL
+/* defines the default token binding policy for OAuth 2.0 access tokens */
+#define OIDC_DEFAULT_OAUTH_ACCESS_TOKEN_BINDING_POLICY OIDC_TOKEN_BINDING_POLICY_OPTIONAL
 /* define the default HTTP method used to send the authentication request to the provider */
 #define OIDC_DEFAULT_AUTH_REQUEST_METHOD OIDC_AUTH_REQUEST_METHOD_GET
 /* define whether the issuer will be added to the redirect uri by default to mitigate the IDP mixup attack */
 #define OIDC_DEFAULT_PROVIDER_ISSUER_SPECIFIC_REDIRECT_URI 0
+/* define the default number of seconds that the access token needs to be valid for; -1 = no refresh */
+#define OIDC_DEFAULT_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY -1
 
-#define OIDCProviderMetadataURL              "OIDCProviderMetadataURL"
-#define OIDCProviderIssuer                   "OIDCProviderIssuer"
-#define OIDCProviderAuthorizationEndpoint    "OIDCProviderAuthorizationEndpoint"
-#define OIDCProviderTokenEndpoint            "OIDCProviderTokenEndpoint"
-#define OIDCProviderTokenEndpointAuth        "OIDCProviderTokenEndpointAuth"
-#define OIDCProviderTokenEndpointParams      "OIDCProviderTokenEndpointParams"
-#define OIDCProviderRegistrationEndpointJson "OIDCProviderRegistrationEndpointJson"
-#define OIDCProviderUserInfoEndpoint         "OIDCProviderUserInfoEndpoint"
-#define OIDCProviderCheckSessionIFrame       "OIDCProviderCheckSessionIFrame"
-#define OIDCProviderEndSessionEndpoint       "OIDCProviderEndSessionEndpoint"
-#define OIDCProviderJwksUri                  "OIDCProviderJwksUri"
-#define OIDCResponseType                     "OIDCResponseType"
-#define OIDCResponseMode                     "OIDCResponseMode"
-#define OIDCPublicKeyFiles                   "OIDCPublicKeyFiles"
-#define OIDCClientJwksUri                    "OIDCClientJwksUri"
-#define OIDCIDTokenSignedResponseAlg         "OIDCIDTokenSignedResponseAlg"
-#define OIDCIDTokenEncryptedResponseAlg      "OIDCIDTokenEncryptedResponseAlg"
-#define OIDCIDTokenEncryptedResponseEnc      "OIDCIDTokenEncryptedResponseEnc"
-#define OIDCUserInfoSignedResponseAlg        "OIDCUserInfoSignedResponseAlg"
-#define OIDCUserInfoEncryptedResponseAlg     "OIDCUserInfoEncryptedResponseAlg"
-#define OIDCUserInfoEncryptedResponseEnc     "OIDCUserInfoEncryptedResponseEnc"
-#define OIDCUserInfoTokenMethod              "OIDCUserInfoTokenMethod"
-#define OIDCTokenBindingPolicy               "OIDCTokenBindingPolicy"
-#define OIDCSSLValidateServer                "OIDCSSLValidateServer"
-#define OIDCClientName                       "OIDCClientName"
-#define OIDCClientContact                    "OIDCClientContact"
-#define OIDCScope                            "OIDCScope"
-#define OIDCPathScope                        "OIDCPathScope"
-#define OIDCJWKSRefreshInterval              "OIDCJWKSRefreshInterval"
-#define OIDCIDTokenIatSlack                  "OIDCIDTokenIatSlack"
-#define OIDCSessionMaxDuration               "OIDCSessionMaxDuration"
-#define OIDCAuthRequestParams                "OIDCAuthRequestParams"
-#define OIDCPathAuthRequestParams            "OIDCPathAuthRequestParams"
-#define OIDCPKCEMethod                       "OIDCPKCEMethod"
-#define OIDCClientID                         "OIDCClientID"
-#define OIDCClientSecret                     "OIDCClientSecret"
-#define OIDCClientTokenEndpointCert          "OIDCClientTokenEndpointCert"
-#define OIDCClientTokenEndpointKey           "OIDCClientTokenEndpointKey"
-#define OIDCDefaultLoggedOutURL              "OIDCDefaultLoggedOutURL"
-#define OIDCCookieHTTPOnly                   "OIDCCookieHTTPOnly"
-#define OIDCCookieSameSite                   "OIDCCookieSameSite"
-#define OIDCOutgoingProxy                    "OIDCOutgoingProxy"
-#define OIDCCryptoPassphrase                 "OIDCCryptoPassphrase"
-#define OIDCClaimDelimiter                   "OIDCClaimDelimiter"
-#define OIDCPassIDTokenAs                    "OIDCPassIDTokenAs"
-#define OIDCOAuthClientID                    "OIDCOAuthClientID"
-#define OIDCOAuthClientSecret                "OIDCOAuthClientSecret"
-#define OIDCOAuthIntrospectionEndpoint       "OIDCOAuthIntrospectionEndpoint"
-#define OIDCOAuthIntrospectionEndpointMethod "OIDCOAuthIntrospectionEndpointMethod"
-#define OIDCOAuthIntrospectionEndpointParams "OIDCOAuthIntrospectionEndpointParams"
-#define OIDCOAuthIntrospectionEndpointAuth   "OIDCOAuthIntrospectionEndpointAuth"
-#define OIDCOAuthIntrospectionEndpointCert   "OIDCOAuthIntrospectionEndpointCert"
-#define OIDCOAuthIntrospectionEndpointKey    "OIDCOAuthIntrospectionEndpointKey"
-#define OIDCOAuthIntrospectionTokenParamName "OIDCOAuthIntrospectionTokenParamName"
-#define OIDCOAuthTokenExpiryClaim            "OIDCOAuthTokenExpiryClaim"
-#define OIDCOAuthSSLValidateServer           "OIDCOAuthSSLValidateServer"
-#define OIDCOAuthVerifyCertFiles             "OIDCOAuthVerifyCertFiles"
-#define OIDCOAuthVerifySharedKeys            "OIDCOAuthVerifySharedKeys"
-#define OIDCOAuthVerifyJwksUri               "OIDCOAuthVerifyJwksUri"
-#define OIDCHTTPTimeoutLong                  "OIDCHTTPTimeoutLong"
-#define OIDCHTTPTimeoutShort                 "OIDCHTTPTimeoutShort"
-#define OIDCStateTimeout                     "OIDCStateTimeout"
-#define OIDCSessionInactivityTimeout         "OIDCSessionInactivityTimeout"
-#define OIDCMetadataDir                      "OIDCMetadataDir"
-#define OIDCSessionCacheFallbackToCookie     "OIDCSessionCacheFallbackToCookie"
-#define OIDCSessionCookieChunkSize           "OIDCSessionCookieChunkSize"
-#define OIDCScrubRequestHeaders              "OIDCScrubRequestHeaders"
-#define OIDCCacheType                        "OIDCCacheType"
-#define OIDCCacheEncrypt                     "OIDCCacheEncrypt"
-#define OIDCCacheDir                         "OIDCCacheDir"
-#define OIDCCacheFileCleanInterval           "OIDCCacheFileCleanInterval"
-#define OIDCRedisCachePassword               "OIDCRedisCachePassword"
-#define OIDCHTMLErrorTemplate                "OIDCHTMLErrorTemplate"
-#define OIDCDiscoverURL                      "OIDCDiscoverURL"
-#define OIDCPassCookies                      "OIDCPassCookies"
-#define OIDCStripCookies                     "OIDCStripCookies"
-#define OIDCAuthNHeader                      "OIDCAuthNHeader"
-#define OIDCCookie                           "OIDCCookie"
-#define OIDCUnAuthAction                     "OIDCUnAuthAction"
-#define OIDCUnAutzAction                     "OIDCUnAutzAction"
-#define OIDCPassClaimsAs                     "OIDCPassClaimsAs"
-#define OIDCOAuthAcceptTokenAs               "OIDCOAuthAcceptTokenAs"
-#define OIDCUserInfoRefreshInterval          "OIDCUserInfoRefreshInterval"
-#define OIDCOAuthTokenIntrospectionInterval  "OIDCOAuthTokenIntrospectionInterval"
-#define OIDCPreservePost                     "OIDCPreservePost"
-#define OIDCPassRefreshToken                 "OIDCPassRefreshToken"
-#define OIDCRequestObject                    "OIDCRequestObject"
-#define OIDCProviderMetadataRefreshInterval  "OIDCProviderMetadataRefreshInterval"
-#define OIDCProviderAuthRequestMethod        "OIDCProviderAuthRequestMethod"
-#define OIDCBlackListedClaims                "OIDCBlackListedClaims"
+#define OIDCProviderMetadataURL                "OIDCProviderMetadataURL"
+#define OIDCProviderIssuer                     "OIDCProviderIssuer"
+#define OIDCProviderAuthorizationEndpoint      "OIDCProviderAuthorizationEndpoint"
+#define OIDCProviderTokenEndpoint              "OIDCProviderTokenEndpoint"
+#define OIDCProviderTokenEndpointAuth          "OIDCProviderTokenEndpointAuth"
+#define OIDCProviderTokenEndpointParams        "OIDCProviderTokenEndpointParams"
+#define OIDCProviderRegistrationEndpointJson   "OIDCProviderRegistrationEndpointJson"
+#define OIDCProviderUserInfoEndpoint           "OIDCProviderUserInfoEndpoint"
+#define OIDCProviderRevocationEndpoint         "OIDCProviderRevocationEndpoint"
+#define OIDCProviderCheckSessionIFrame         "OIDCProviderCheckSessionIFrame"
+#define OIDCProviderEndSessionEndpoint         "OIDCProviderEndSessionEndpoint"
+#define OIDCProviderBackChannelLogoutSupported "OIDCProviderBackChannelLogoutSupported"
+#define OIDCProviderJwksUri                    "OIDCProviderJwksUri"
+#define OIDCResponseType                       "OIDCResponseType"
+#define OIDCResponseMode                       "OIDCResponseMode"
+#define OIDCPublicKeyFiles                     "OIDCPublicKeyFiles"
+#define OIDCClientJwksUri                      "OIDCClientJwksUri"
+#define OIDCIDTokenSignedResponseAlg           "OIDCIDTokenSignedResponseAlg"
+#define OIDCIDTokenEncryptedResponseAlg        "OIDCIDTokenEncryptedResponseAlg"
+#define OIDCIDTokenEncryptedResponseEnc        "OIDCIDTokenEncryptedResponseEnc"
+#define OIDCUserInfoSignedResponseAlg          "OIDCUserInfoSignedResponseAlg"
+#define OIDCUserInfoEncryptedResponseAlg       "OIDCUserInfoEncryptedResponseAlg"
+#define OIDCUserInfoEncryptedResponseEnc       "OIDCUserInfoEncryptedResponseEnc"
+#define OIDCUserInfoTokenMethod                "OIDCUserInfoTokenMethod"
+#define OIDCTokenBindingPolicy                 "OIDCTokenBindingPolicy"
+#define OIDCSSLValidateServer                  "OIDCSSLValidateServer"
+#define OIDCClientName                         "OIDCClientName"
+#define OIDCClientContact                      "OIDCClientContact"
+#define OIDCScope                              "OIDCScope"
+#define OIDCPathScope                          "OIDCPathScope"
+#define OIDCJWKSRefreshInterval                "OIDCJWKSRefreshInterval"
+#define OIDCIDTokenIatSlack                    "OIDCIDTokenIatSlack"
+#define OIDCSessionMaxDuration                 "OIDCSessionMaxDuration"
+#define OIDCAuthRequestParams                  "OIDCAuthRequestParams"
+#define OIDCPathAuthRequestParams              "OIDCPathAuthRequestParams"
+#define OIDCPKCEMethod                         "OIDCPKCEMethod"
+#define OIDCClientID                           "OIDCClientID"
+#define OIDCClientSecret                       "OIDCClientSecret"
+#define OIDCClientTokenEndpointCert            "OIDCClientTokenEndpointCert"
+#define OIDCClientTokenEndpointKey             "OIDCClientTokenEndpointKey"
+#define OIDCDefaultLoggedOutURL                "OIDCDefaultLoggedOutURL"
+#define OIDCCookieHTTPOnly                     "OIDCCookieHTTPOnly"
+#define OIDCCookieSameSite                     "OIDCCookieSameSite"
+#define OIDCOutgoingProxy                      "OIDCOutgoingProxy"
+#define OIDCCryptoPassphrase                   "OIDCCryptoPassphrase"
+#define OIDCClaimDelimiter                     "OIDCClaimDelimiter"
+#define OIDCPassIDTokenAs                      "OIDCPassIDTokenAs"
+#define OIDCPassUserInfoAs                     "OIDCPassUserInfoAs"
+#define OIDCOAuthClientID                      "OIDCOAuthClientID"
+#define OIDCOAuthClientSecret                  "OIDCOAuthClientSecret"
+#define OIDCOAuthIntrospectionClientAuthBearerToken "OIDCOAuthIntrospectionClientAuthBearerToken"
+#define OIDCOAuthIntrospectionEndpoint         "OIDCOAuthIntrospectionEndpoint"
+#define OIDCOAuthIntrospectionEndpointMethod   "OIDCOAuthIntrospectionEndpointMethod"
+#define OIDCOAuthIntrospectionEndpointParams   "OIDCOAuthIntrospectionEndpointParams"
+#define OIDCOAuthIntrospectionEndpointAuth     "OIDCOAuthIntrospectionEndpointAuth"
+#define OIDCOAuthIntrospectionEndpointCert     "OIDCOAuthIntrospectionEndpointCert"
+#define OIDCOAuthIntrospectionEndpointKey      "OIDCOAuthIntrospectionEndpointKey"
+#define OIDCOAuthIntrospectionTokenParamName   "OIDCOAuthIntrospectionTokenParamName"
+#define OIDCOAuthTokenExpiryClaim              "OIDCOAuthTokenExpiryClaim"
+#define OIDCOAuthSSLValidateServer             "OIDCOAuthSSLValidateServer"
+#define OIDCOAuthVerifyCertFiles               "OIDCOAuthVerifyCertFiles"
+#define OIDCOAuthVerifySharedKeys              "OIDCOAuthVerifySharedKeys"
+#define OIDCOAuthVerifyJwksUri                 "OIDCOAuthVerifyJwksUri"
+#define OIDCHTTPTimeoutLong                    "OIDCHTTPTimeoutLong"
+#define OIDCHTTPTimeoutShort                   "OIDCHTTPTimeoutShort"
+#define OIDCStateTimeout                       "OIDCStateTimeout"
+#define OIDCStateMaxNumberOfCookies            "OIDCStateMaxNumberOfCookies"
+#define OIDCSessionInactivityTimeout           "OIDCSessionInactivityTimeout"
+#define OIDCMetadataDir                        "OIDCMetadataDir"
+#define OIDCSessionCacheFallbackToCookie       "OIDCSessionCacheFallbackToCookie"
+#define OIDCSessionCookieChunkSize             "OIDCSessionCookieChunkSize"
+#define OIDCScrubRequestHeaders                "OIDCScrubRequestHeaders"
+#define OIDCCacheType                          "OIDCCacheType"
+#define OIDCCacheEncrypt                       "OIDCCacheEncrypt"
+#define OIDCCacheDir                           "OIDCCacheDir"
+#define OIDCCacheFileCleanInterval             "OIDCCacheFileCleanInterval"
+#define OIDCRedisCachePassword                 "OIDCRedisCachePassword"
+#define OIDCHTMLErrorTemplate                  "OIDCHTMLErrorTemplate"
+#define OIDCDiscoverURL                        "OIDCDiscoverURL"
+#define OIDCPassCookies                        "OIDCPassCookies"
+#define OIDCStripCookies                       "OIDCStripCookies"
+#define OIDCAuthNHeader                        "OIDCAuthNHeader"
+#define OIDCCookie                             "OIDCCookie"
+#define OIDCUnAuthAction                       "OIDCUnAuthAction"
+#define OIDCUnAutzAction                       "OIDCUnAutzAction"
+#define OIDCPassClaimsAs                       "OIDCPassClaimsAs"
+#define OIDCOAuthAcceptTokenAs                 "OIDCOAuthAcceptTokenAs"
+#define OIDCUserInfoRefreshInterval            "OIDCUserInfoRefreshInterval"
+#define OIDCOAuthTokenIntrospectionInterval    "OIDCOAuthTokenIntrospectionInterval"
+#define OIDCPreservePost                       "OIDCPreservePost"
+#define OIDCPassRefreshToken                   "OIDCPassRefreshToken"
+#define OIDCRequestObject                      "OIDCRequestObject"
+#define OIDCProviderMetadataRefreshInterval    "OIDCProviderMetadataRefreshInterval"
+#define OIDCProviderAuthRequestMethod          "OIDCProviderAuthRequestMethod"
+#define OIDCBlackListedClaims                  "OIDCBlackListedClaims"
+#define OIDCOAuthServerMetadataURL             "OIDCOAuthServerMetadataURL"
+#define OIDCOAuthAccessTokenBindingPolicy      "OIDCOAuthAccessTokenBindingPolicy"
+#define OIDCRefreshAccessTokenBeforeExpiry     "OIDCRefreshAccessTokenBeforeExpiry"
 
 extern module AP_MODULE_DECLARE_DATA auth_openidc_module;
 
@@ -276,6 +291,8 @@ typedef struct oidc_dir_cfg {
 	int pass_refresh_token;
 	char *path_auth_request_params;
 	char *path_scope;
+	int refresh_access_token_before_expiry;
+	int logout_on_error_refresh;
 } oidc_dir_cfg;
 
 #define OIDC_CONFIG_DIR_RV(cmd, rv) rv != NULL ? apr_psprintf(cmd->pool, "Invalid value for directive '%s': %s", cmd->directive->directive, rv) : NULL
@@ -602,6 +619,23 @@ static const char *oidc_set_session_max_duration(cmd_parms *cmd,
 	return OIDC_CONFIG_DIR_RV(cmd, rv);
 }
 
+typedef struct oidc_cleanup_keys_ctx {
+	apr_pool_t *pool;
+	apr_hash_t *keys;
+} oidc_cleanup_keys_ctx;
+
+static apr_status_t oidc_cleanup_keys(void *data) {
+	oidc_cleanup_keys_ctx *ctx = (oidc_cleanup_keys_ctx *) data;
+	oidc_jwk_t *jwk = NULL;
+	apr_hash_index_t *hi;
+	for (hi = apr_hash_first(ctx->pool, ctx->keys); hi;
+			hi = apr_hash_next(hi)) {
+		apr_hash_this(hi, NULL, NULL, (void **) &jwk);
+		oidc_jwk_destroy(jwk);
+	}
+	return APR_SUCCESS;
+}
+
 /*
  * add a public key from an X.509 file to our list of JWKs with public keys
  */
@@ -625,15 +659,22 @@ static const char *oidc_set_public_key_files(cmd_parms *cmd, void *struct_ptr,
 
 	fname = oidc_util_get_full_path(cmd->pool, fname);
 
-	if (oidc_jwk_parse_rsa_public_key(cmd->pool, kid, fname, &jwk,
-			&err) == FALSE) {
+	if (oidc_jwk_parse_rsa_public_key(cmd->pool, kid, fname, &jwk, &err)
+			== FALSE) {
 		return apr_psprintf(cmd->pool,
 				"oidc_jwk_parse_rsa_public_key failed for (kid=%s) \"%s\": %s",
 				kid, fname, oidc_jose_e2s(cmd->pool, err));
 	}
 
-	if (*public_keys == NULL)
+	if (*public_keys == NULL) {
 		*public_keys = apr_hash_make(cmd->pool);
+		oidc_cleanup_keys_ctx *ctx = apr_pcalloc(cmd->pool,
+				sizeof(oidc_cleanup_keys_ctx));
+		ctx->pool = cmd->pool;
+		ctx->keys = *public_keys;
+		apr_pool_cleanup_register(cmd->pool, ctx, oidc_cleanup_keys,
+				oidc_cleanup_keys);
+	}
 	apr_hash_set(*public_keys, jwk->kid, APR_HASH_KEY_STRING, jwk);
 
 	return NULL;
@@ -694,16 +735,25 @@ static const char *oidc_set_private_key_files_enc(cmd_parms *cmd, void *dummy,
 
 	fname = oidc_util_get_full_path(cmd->pool, fname);
 
-	if (oidc_jwk_parse_rsa_private_key(cmd->pool, kid, fname, &jwk,
-			&err) == FALSE) {
+	if (oidc_jwk_parse_rsa_private_key(cmd->pool, kid, fname, &jwk, &err)
+			== FALSE) {
 		return apr_psprintf(cmd->pool,
 				"oidc_jwk_parse_rsa_private_key failed for (kid=%s) \"%s\": %s",
 				kid, fname, oidc_jose_e2s(cmd->pool, err));
 	}
 
-	if (cfg->private_keys == NULL)
+	if (cfg->private_keys == NULL) {
 		cfg->private_keys = apr_hash_make(cmd->pool);
+		oidc_cleanup_keys_ctx *ctx = apr_pcalloc(cmd->pool,
+				sizeof(oidc_cleanup_keys_ctx));
+		ctx->pool = cmd->pool;
+		ctx->keys = cfg->private_keys;
+		apr_pool_cleanup_register(cmd->pool, ctx, oidc_cleanup_keys,
+				oidc_cleanup_keys);
+	}
+
 	apr_hash_set(cfg->private_keys, jwk->kid, APR_HASH_KEY_STRING, jwk);
+
 	return NULL;
 }
 
@@ -716,6 +766,18 @@ static const char * oidc_set_pass_idtoken_as(cmd_parms *cmd, void *dummy,
 			cmd->server->module_config, &auth_openidc_module);
 	const char *rv = oidc_parse_pass_idtoken_as(cmd->pool, v1, v2, v3,
 			&cfg->pass_idtoken_as);
+	return OIDC_CONFIG_DIR_RV(cmd, rv);
+}
+
+/*
+ * define how to pass the userinfo/claims in HTTP headers
+ */
+static const char * oidc_set_pass_userinfo_as(cmd_parms *cmd, void *dummy,
+		const char *v1, const char *v2, const char *v3) {
+	oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(
+			cmd->server->module_config, &auth_openidc_module);
+	const char *rv = oidc_parse_pass_userinfo_as(cmd->pool, v1, v2, v3,
+			&cfg->pass_userinfo_as);
 	return OIDC_CONFIG_DIR_RV(cmd, rv);
 }
 
@@ -922,8 +984,10 @@ static const char *oidc_set_token_binding_policy(cmd_parms *cmd,
 		void *struct_ptr, const char *arg) {
 	oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(
 			cmd->server->module_config, &auth_openidc_module);
+	int offset = (int) (long) cmd->info;
+	int *token_binding_policy = (int *) ((char *) cfg + offset);
 	const char *rv = oidc_parse_token_binding_policy(cmd->pool, arg,
-			&cfg->provider.token_binding_policy);
+			token_binding_policy);
 	return OIDC_CONFIG_DIR_RV(cmd, rv);
 }
 
@@ -966,6 +1030,133 @@ const char *oidc_set_auth_request_method(cmd_parms *cmd, void *struct_ptr,
 }
 
 /*
+ * set the introspection authorization static bearer token
+ */
+static const char *oidc_set_client_auth_bearer_token(cmd_parms *cmd,
+		void *struct_ptr, const char *args) {
+	oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(
+			cmd->server->module_config, &auth_openidc_module);
+	char *w = ap_getword_conf(cmd->pool, &args);
+	cfg->oauth.introspection_client_auth_bearer_token =
+			(*w == '\0' || *args != 0) ? "" : w;
+	return NULL;
+}
+
+/*
+ * set the maximun number of parallel state cookies
+ */
+static const char *oidc_set_max_number_of_state_cookies(cmd_parms *cmd,
+		void *struct_ptr, const char *arg1, const char *arg2) {
+	oidc_cfg *cfg = (oidc_cfg *) ap_get_module_config(
+			cmd->server->module_config, &auth_openidc_module);
+	const char *rv = oidc_parse_max_number_of_state_cookies(cmd->pool, arg1,
+			arg2, &cfg->max_number_of_state_cookies,
+			&cfg->delete_oldest_state_cookies);
+	return OIDC_CONFIG_DIR_RV(cmd, rv);
+}
+
+/*
+ * return the maximun number of parallel state cookies
+ */
+int oidc_cfg_max_number_of_state_cookies(oidc_cfg *cfg) {
+	if (cfg->max_number_of_state_cookies == OIDC_CONFIG_POS_INT_UNSET)
+		return OIDC_DEFAULT_MAX_NUMBER_OF_STATE_COOKIES;
+	return cfg->max_number_of_state_cookies;
+}
+
+/*
+ * return the number of oldest state cookies that need to be deleted
+ */
+int oidc_cfg_delete_oldest_state_cookies(oidc_cfg *cfg) {
+	if (cfg->delete_oldest_state_cookies == OIDC_CONFIG_POS_INT_UNSET)
+		return OIDC_DEFAULT_DELETE_OLDEST_STATE_COOKIES;
+	return cfg->delete_oldest_state_cookies;
+}
+
+/*
+ * set the time in seconds that the access token needs to be valid for
+ */
+static const char * oidc_set_refresh_access_token_before_expiry(cmd_parms *cmd,
+		void *m, const char *arg1, const char *arg2) {
+	oidc_dir_cfg *dir_cfg = (oidc_dir_cfg *) m;
+	const char *rv1 = oidc_parse_refresh_access_token_before_expiry(cmd->pool,
+			arg1, &dir_cfg->refresh_access_token_before_expiry);
+	if (rv1 != NULL)
+		return apr_psprintf(cmd->pool, "Invalid value for directive '%s': %s", cmd->directive->directive, rv1);
+
+	if (arg2) {
+		const char *rv2 = oidc_parse_logout_on_error_refresh_as(cmd->pool,
+			arg2, &dir_cfg->logout_on_error_refresh);
+		return OIDC_CONFIG_DIR_RV(cmd, rv2);
+	}
+
+	return NULL;
+}
+
+int oidc_cfg_dir_refresh_access_token_before_expiry(request_rec *r) {
+	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
+			&auth_openidc_module);
+	if (dir_cfg->refresh_access_token_before_expiry == OIDC_CONFIG_POS_INT_UNSET)
+		return OIDC_DEFAULT_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY;
+	return dir_cfg->refresh_access_token_before_expiry;
+}
+
+int oidc_cfg_dir_logout_on_error_refresh(request_rec *r) {
+	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
+			&auth_openidc_module);
+	if (dir_cfg->logout_on_error_refresh == OIDC_CONFIG_POS_INT_UNSET)
+		return 0; // no mask
+	return dir_cfg->logout_on_error_refresh;
+}
+
+void oidc_cfg_provider_init(oidc_provider_t *provider) {
+	provider->metadata_url = NULL;
+	provider->issuer = NULL;
+	provider->authorization_endpoint_url = NULL;
+	provider->token_endpoint_url = NULL;
+	provider->token_endpoint_auth = NULL;
+	provider->token_endpoint_params = NULL;
+	provider->userinfo_endpoint_url = NULL;
+	provider->revocation_endpoint_url = NULL;
+	provider->client_id = NULL;
+	provider->client_secret = NULL;
+	provider->token_endpoint_tls_client_cert = NULL;
+	provider->token_endpoint_tls_client_key = NULL;
+	provider->registration_endpoint_url = NULL;
+	provider->registration_endpoint_json = NULL;
+	provider->check_session_iframe = NULL;
+	provider->end_session_endpoint = NULL;
+	provider->jwks_uri = NULL;
+	provider->backchannel_logout_supported = OIDC_CONFIG_POS_INT_UNSET;
+
+	provider->ssl_validate_server = OIDC_DEFAULT_SSL_VALIDATE_SERVER;
+	provider->client_name = OIDC_DEFAULT_CLIENT_NAME;
+	provider->client_contact = NULL;
+	provider->registration_token = NULL;
+	provider->scope = OIDC_DEFAULT_SCOPE;
+	provider->response_type = OIDC_DEFAULT_RESPONSE_TYPE;
+	provider->response_mode = NULL;
+	provider->jwks_refresh_interval = OIDC_DEFAULT_JWKS_REFRESH_INTERVAL;
+	provider->idtoken_iat_slack = OIDC_DEFAULT_IDTOKEN_IAT_SLACK;
+	provider->session_max_duration = OIDC_DEFAULT_SESSION_MAX_DURATION;
+	provider->auth_request_params = NULL;
+	provider->pkce = NULL;
+
+	provider->client_jwks_uri = NULL;
+	provider->client_signing_keys = NULL;
+	provider->client_encryption_keys = NULL;
+
+	provider->id_token_signed_response_alg = NULL;
+	provider->id_token_encrypted_response_alg = NULL;
+	provider->id_token_encrypted_response_enc = NULL;
+	provider->userinfo_signed_response_alg = NULL;
+	provider->userinfo_encrypted_response_alg = NULL;
+	provider->userinfo_encrypted_response_enc = NULL;
+	provider->userinfo_token_method = OIDC_USER_INFO_TOKEN_METHOD_HEADER;
+	provider->auth_request_method = OIDC_DEFAULT_AUTH_REQUEST_METHOD;
+}
+
+/*
  * create a new server config record with defaults
  */
 void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
@@ -979,47 +1170,10 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->public_keys = NULL;
 	c->private_keys = NULL;
 
-	c->provider.metadata_url = NULL;
-	c->provider.issuer = NULL;
-	c->provider.authorization_endpoint_url = NULL;
-	c->provider.token_endpoint_url = NULL;
-	c->provider.token_endpoint_auth = NULL;
-	c->provider.token_endpoint_params = NULL;
-	c->provider.userinfo_endpoint_url = NULL;
-	c->provider.client_id = NULL;
-	c->provider.client_secret = NULL;
-	c->provider.token_endpoint_tls_client_cert = NULL;
-	c->provider.token_endpoint_tls_client_key = NULL;
-	c->provider.registration_endpoint_url = NULL;
-	c->provider.registration_endpoint_json = NULL;
-	c->provider.check_session_iframe = NULL;
-	c->provider.end_session_endpoint = NULL;
-	c->provider.jwks_uri = NULL;
-
-	c->provider.ssl_validate_server = OIDC_DEFAULT_SSL_VALIDATE_SERVER;
-	c->provider.client_name = OIDC_DEFAULT_CLIENT_NAME;
-	c->provider.client_contact = NULL;
-	c->provider.registration_token = NULL;
-	c->provider.scope = OIDC_DEFAULT_SCOPE;
-	c->provider.response_type = OIDC_DEFAULT_RESPONSE_TYPE;
-	c->provider.response_mode = NULL;
-	c->provider.jwks_refresh_interval = OIDC_DEFAULT_JWKS_REFRESH_INTERVAL;
-	c->provider.idtoken_iat_slack = OIDC_DEFAULT_IDTOKEN_IAT_SLACK;
-	c->provider.session_max_duration = OIDC_DEFAULT_SESSION_MAX_DURATION;
-	c->provider.auth_request_params = NULL;
-	c->provider.pkce = NULL;
-
-	c->provider.client_jwks_uri = NULL;
-	c->provider.id_token_signed_response_alg = NULL;
-	c->provider.id_token_encrypted_response_alg = NULL;
-	c->provider.id_token_encrypted_response_enc = NULL;
-	c->provider.userinfo_signed_response_alg = NULL;
-	c->provider.userinfo_encrypted_response_alg = NULL;
-	c->provider.userinfo_encrypted_response_enc = NULL;
-	c->provider.userinfo_token_method = OIDC_USER_INFO_TOKEN_METHOD_HEADER;
-	c->provider.auth_request_method = OIDC_DEFAULT_AUTH_REQUEST_METHOD;
+	oidc_cfg_provider_init(&c->provider);
 
 	c->oauth.ssl_validate_server = OIDC_DEFAULT_SSL_VALIDATE_SERVER;
+	c->oauth.metadata_url = NULL;
 	c->oauth.client_id = NULL;
 	c->oauth.client_secret = NULL;
 	c->oauth.introspection_endpoint_tls_client_cert = NULL;
@@ -1028,6 +1182,7 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->oauth.introspection_endpoint_method = OIDC_DEFAULT_OAUTH_ENDPOINT_METHOD;
 	c->oauth.introspection_endpoint_params = NULL;
 	c->oauth.introspection_endpoint_auth = NULL;
+	c->oauth.introspection_client_auth_bearer_token = NULL;
 	c->oauth.introspection_token_param_name =
 			OIDC_DEFAULT_OAUTH_TOKEN_PARAM_NAME;
 
@@ -1047,13 +1202,18 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->oauth.verify_public_keys = NULL;
 	c->oauth.verify_shared_keys = NULL;
 
+	c->oauth.access_token_binding_policy =
+			OIDC_DEFAULT_OAUTH_ACCESS_TOKEN_BINDING_POLICY;
+
 	c->cache = &oidc_cache_shm;
 	c->cache_cfg = NULL;
 	c->cache_encrypt = OIDC_CONFIG_POS_INT_UNSET;
 
 	c->cache_file_dir = NULL;
 	c->cache_file_clean_interval = OIDC_DEFAULT_CACHE_FILE_CLEAN_INTERVAL;
+#ifdef USE_MEMCACHE
 	c->cache_memcache_servers = NULL;
+#endif
 	c->cache_shm_size_max = OIDC_DEFAULT_CACHE_SHM_SIZE;
 	c->cache_shm_entry_size_max = OIDC_DEFAULT_CACHE_SHM_ENTRY_SIZE_MAX;
 #ifdef USE_LIBHIREDIS
@@ -1071,6 +1231,8 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->http_timeout_long = OIDC_DEFAULT_HTTP_TIMEOUT_LONG;
 	c->http_timeout_short = OIDC_DEFAULT_HTTP_TIMEOUT_SHORT;
 	c->state_timeout = OIDC_DEFAULT_STATE_TIMEOUT;
+	c->max_number_of_state_cookies = OIDC_CONFIG_POS_INT_UNSET;
+	c->delete_oldest_state_cookies = OIDC_CONFIG_POS_INT_UNSET;
 	c->session_inactivity_timeout = OIDC_DEFAULT_SESSION_INACTIVITY_TIMEOUT;
 
 	c->cookie_domain = NULL;
@@ -1080,13 +1242,13 @@ void *oidc_create_server_config(apr_pool_t *pool, server_rec *svr) {
 	c->remote_user_claim.reg_exp = NULL;
 	c->remote_user_claim.replace = NULL;
 	c->pass_idtoken_as = OIDC_PASS_IDTOKEN_AS_CLAIMS;
+	c->pass_userinfo_as = OIDC_PASS_USERINFO_AS_CLAIMS;
 	c->cookie_http_only = OIDC_DEFAULT_COOKIE_HTTPONLY;
 	c->cookie_same_site = OIDC_DEFAULT_COOKIE_SAME_SITE;
 
 	c->outgoing_proxy = NULL;
 	c->crypto_passphrase = NULL;
 
-	c->scrub_request_headers = OIDC_DEFAULT_SCRUB_REQUEST_HEADERS;
 	c->error_template = NULL;
 
 	c->provider.userinfo_refresh_interval =
@@ -1159,6 +1321,10 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->provider.userinfo_endpoint_url != NULL ?
 					add->provider.userinfo_endpoint_url :
 					base->provider.userinfo_endpoint_url;
+	c->provider.revocation_endpoint_url =
+			add->provider.revocation_endpoint_url != NULL ?
+					add->provider.revocation_endpoint_url :
+					base->provider.revocation_endpoint_url;
 	c->provider.jwks_uri =
 			add->provider.jwks_uri != NULL ?
 					add->provider.jwks_uri : base->provider.jwks_uri;
@@ -1195,6 +1361,11 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->provider.end_session_endpoint != NULL ?
 					add->provider.end_session_endpoint :
 					base->provider.end_session_endpoint;
+	c->provider.backchannel_logout_supported =
+			add->provider.backchannel_logout_supported
+			!= OIDC_CONFIG_POS_INT_UNSET ?
+					add->provider.backchannel_logout_supported :
+					base->provider.backchannel_logout_supported;
 
 	c->provider.ssl_validate_server =
 			add->provider.ssl_validate_server
@@ -1249,6 +1420,15 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->provider.client_jwks_uri != NULL ?
 					add->provider.client_jwks_uri :
 					base->provider.client_jwks_uri;
+	c->provider.client_signing_keys =
+			add->provider.client_signing_keys != NULL ?
+					add->provider.client_signing_keys :
+					base->provider.client_signing_keys;
+	c->provider.client_encryption_keys =
+			add->provider.client_encryption_keys != NULL ?
+					add->provider.client_encryption_keys :
+					base->provider.client_encryption_keys;
+
 	c->provider.id_token_signed_response_alg =
 			add->provider.id_token_signed_response_alg != NULL ?
 					add->provider.id_token_signed_response_alg :
@@ -1288,6 +1468,9 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->oauth.ssl_validate_server != OIDC_DEFAULT_SSL_VALIDATE_SERVER ?
 					add->oauth.ssl_validate_server :
 					base->oauth.ssl_validate_server;
+	c->oauth.metadata_url =
+			add->oauth.metadata_url != NULL ?
+					add->oauth.metadata_url : base->oauth.metadata_url;
 	c->oauth.client_id =
 			add->oauth.client_id != NULL ?
 					add->oauth.client_id : base->oauth.client_id;
@@ -1321,6 +1504,10 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 			add->oauth.introspection_endpoint_auth != NULL ?
 					add->oauth.introspection_endpoint_auth :
 					base->oauth.introspection_endpoint_auth;
+	c->oauth.introspection_client_auth_bearer_token =
+			add->oauth.introspection_client_auth_bearer_token != NULL ?
+					add->oauth.introspection_client_auth_bearer_token :
+					base->oauth.introspection_client_auth_bearer_token;
 	c->oauth.introspection_token_param_name =
 			apr_strnatcmp(add->oauth.introspection_token_param_name,
 					OIDC_DEFAULT_OAUTH_TOKEN_PARAM_NAME) != 0 ?
@@ -1369,6 +1556,12 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 					add->oauth.verify_shared_keys :
 					base->oauth.verify_shared_keys;
 
+	c->oauth.access_token_binding_policy =
+			add->oauth.access_token_binding_policy
+			!= OIDC_DEFAULT_OAUTH_ACCESS_TOKEN_BINDING_POLICY ?
+					add->oauth.access_token_binding_policy :
+					base->oauth.access_token_binding_policy;
+
 	c->http_timeout_long =
 			add->http_timeout_long != OIDC_DEFAULT_HTTP_TIMEOUT_LONG ?
 					add->http_timeout_long : base->http_timeout_long;
@@ -1378,6 +1571,14 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 	c->state_timeout =
 			add->state_timeout != OIDC_DEFAULT_STATE_TIMEOUT ?
 					add->state_timeout : base->state_timeout;
+	c->max_number_of_state_cookies =
+			add->max_number_of_state_cookies != OIDC_CONFIG_POS_INT_UNSET ?
+					add->max_number_of_state_cookies :
+					base->max_number_of_state_cookies;
+	c->delete_oldest_state_cookies =
+			add->delete_oldest_state_cookies != OIDC_CONFIG_POS_INT_UNSET ?
+					add->delete_oldest_state_cookies :
+					base->delete_oldest_state_cookies;
 	c->session_inactivity_timeout =
 			add->session_inactivity_timeout
 			!= OIDC_DEFAULT_SESSION_INACTIVITY_TIMEOUT ?
@@ -1405,9 +1606,11 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 					add->cache_file_clean_interval :
 					base->cache_file_clean_interval;
 
+#ifdef USE_MEMCACHE
 	c->cache_memcache_servers =
 			add->cache_memcache_servers != NULL ?
 					add->cache_memcache_servers : base->cache_memcache_servers;
+#endif
 	c->cache_shm_size_max =
 			add->cache_shm_size_max != OIDC_DEFAULT_CACHE_SHM_SIZE ?
 					add->cache_shm_size_max : base->cache_shm_size_max;
@@ -1469,6 +1672,9 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 	c->pass_idtoken_as =
 			add->pass_idtoken_as != OIDC_PASS_IDTOKEN_AS_CLAIMS ?
 					add->pass_idtoken_as : base->pass_idtoken_as;
+	c->pass_userinfo_as =
+			add->pass_userinfo_as != OIDC_PASS_USERINFO_AS_CLAIMS ?
+					add->pass_userinfo_as : base->pass_userinfo_as;
 	c->cookie_http_only =
 			add->cookie_http_only != OIDC_DEFAULT_COOKIE_HTTPONLY ?
 					add->cookie_http_only : base->cookie_http_only;
@@ -1483,10 +1689,6 @@ void *oidc_merge_server_config(apr_pool_t *pool, void *BASE, void *ADD) {
 	c->crypto_passphrase =
 			add->crypto_passphrase != NULL ?
 					add->crypto_passphrase : base->crypto_passphrase;
-
-	c->scrub_request_headers =
-			add->scrub_request_headers != OIDC_DEFAULT_SCRUB_REQUEST_HEADERS ?
-					add->scrub_request_headers : base->scrub_request_headers;
 
 	c->error_template =
 			add->error_template != NULL ?
@@ -1573,6 +1775,8 @@ void *oidc_create_dir_config(apr_pool_t *pool, char *path) {
 	c->pass_refresh_token = OIDC_CONFIG_POS_INT_UNSET;
 	c->path_auth_request_params = NULL;
 	c->path_scope = NULL;
+	c->refresh_access_token_before_expiry = OIDC_CONFIG_POS_INT_UNSET;
+	c->logout_on_error_refresh = OIDC_CONFIG_POS_INT_UNSET;
 	return (c);
 }
 
@@ -1618,7 +1822,7 @@ char *oidc_cfg_dir_authn_header(request_rec *r) {
 	return dir_cfg->authn_header;
 }
 
-int oidc_cfg_dir_pass_info_in_headers(request_rec *r) {
+apr_byte_t oidc_cfg_dir_pass_info_in_headers(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
 	if (dir_cfg->pass_info_in_headers == OIDC_CONFIG_POS_INT_UNSET)
@@ -1626,7 +1830,7 @@ int oidc_cfg_dir_pass_info_in_headers(request_rec *r) {
 	return dir_cfg->pass_info_in_headers;
 }
 
-int oidc_cfg_dir_pass_info_in_envvars(request_rec *r) {
+apr_byte_t oidc_cfg_dir_pass_info_in_envvars(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
 	if (dir_cfg->pass_info_in_env_vars == OIDC_CONFIG_POS_INT_UNSET)
@@ -1634,7 +1838,7 @@ int oidc_cfg_dir_pass_info_in_envvars(request_rec *r) {
 	return dir_cfg->pass_info_in_env_vars;
 }
 
-int oidc_cfg_dir_pass_refresh_token(request_rec *r) {
+apr_byte_t oidc_cfg_dir_pass_refresh_token(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
 	if (dir_cfg->pass_refresh_token == OIDC_CONFIG_POS_INT_UNSET)
@@ -1642,7 +1846,7 @@ int oidc_cfg_dir_pass_refresh_token(request_rec *r) {
 	return dir_cfg->pass_refresh_token;
 }
 
-int oidc_cfg_dir_accept_token_in(request_rec *r) {
+apr_byte_t oidc_cfg_dir_accept_token_in(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
 	if (dir_cfg->oauth_accept_token_in == OIDC_CONFIG_POS_INT_UNSET)
@@ -1785,6 +1989,16 @@ void *oidc_merge_dir_config(apr_pool_t *pool, void *BASE, void *ADD) {
 	c->path_scope =
 			add->path_scope != NULL ? add->path_scope : base->path_scope;
 
+	c->refresh_access_token_before_expiry =
+			add->refresh_access_token_before_expiry != OIDC_CONFIG_POS_INT_UNSET ?
+					add->refresh_access_token_before_expiry :
+					base->refresh_access_token_before_expiry;
+
+	c->logout_on_error_refresh =
+			add->logout_on_error_refresh != OIDC_CONFIG_POS_INT_UNSET ?
+					add->logout_on_error_refresh :
+					base->logout_on_error_refresh;
+
 	return (c);
 }
 
@@ -1827,7 +2041,8 @@ static int oidc_check_config_openid_openidc(server_rec *s, oidc_cfg *c) {
 						OIDCProviderAuthorizationEndpoint);
 		} else {
 			apr_uri_parse(s->process->pconf, c->provider.metadata_url, &r_uri);
-			if (apr_strnatcmp(r_uri.scheme, "http") == 0) {
+			if ((r_uri.scheme == NULL)
+					|| (apr_strnatcmp(r_uri.scheme, "https") != 0)) {
 				oidc_swarn(s,
 						"the URL scheme (%s) of the configured " OIDCProviderMetadataURL " SHOULD be \"https\" for security reasons!",
 						r_uri.scheme);
@@ -1873,13 +2088,29 @@ static int oidc_check_config_openid_openidc(server_rec *s, oidc_cfg *c) {
  */
 static int oidc_check_config_oauth(server_rec *s, oidc_cfg *c) {
 
+	apr_uri_t r_uri;
+
+	oidc_swarn(s,
+			"The OAuth 2.0 Resource Server functionality is deprecated and superseded by a new module, see: https://github.com/zmartzone/mod_oauth2!");
+
+	if (c->oauth.metadata_url != NULL) {
+		apr_uri_parse(s->process->pconf, c->oauth.metadata_url, &r_uri);
+		if ((r_uri.scheme == NULL)
+				|| (apr_strnatcmp(r_uri.scheme, "https") != 0)) {
+			oidc_swarn(s,
+					"the URL scheme (%s) of the configured " OIDCOAuthServerMetadataURL " SHOULD be \"https\" for security reasons!",
+					r_uri.scheme);
+		}
+		return OK;
+	}
+
 	if (c->oauth.introspection_endpoint_url == NULL) {
 
 		if ((c->oauth.verify_jwks_uri == NULL)
 				&& (c->oauth.verify_public_keys == NULL)
 				&& (c->oauth.verify_shared_keys == NULL)) {
 			oidc_serror(s,
-					"one of '" OIDCOAuthIntrospectionEndpoint "', '" OIDCOAuthVerifyJwksUri "', '" OIDCOAuthVerifySharedKeys "' or '" OIDCOAuthVerifyCertFiles "' must be set");
+					"one of '" OIDCOAuthServerMetadataURL "', '" OIDCOAuthIntrospectionEndpoint "', '" OIDCOAuthVerifyJwksUri "', '" OIDCOAuthVerifySharedKeys "' or '" OIDCOAuthVerifyCertFiles "' must be set");
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 
@@ -1905,13 +2136,13 @@ static int oidc_config_check_vhost_config(apr_pool_t *pool, server_rec *s) {
 	oidc_sdebug(s, "enter");
 
 	if ((cfg->metadata_dir != NULL) || (cfg->provider.issuer != NULL)
-			|| (cfg->provider.metadata_url != NULL)
-			|| (cfg->redirect_uri != NULL)) {
+			|| (cfg->provider.metadata_url != NULL)) {
 		if (oidc_check_config_openid_openidc(s, cfg) != OK)
 			return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
-	if ((cfg->oauth.client_id != NULL) || (cfg->oauth.client_secret != NULL)
+	if ((cfg->oauth.metadata_url != NULL) || (cfg->oauth.client_id != NULL)
+			|| (cfg->oauth.client_secret != NULL)
 			|| (cfg->oauth.introspection_endpoint_url != NULL)
 			|| (cfg->oauth.verify_jwks_uri != NULL)
 			|| (cfg->oauth.verify_public_keys != NULL)
@@ -1958,7 +2189,7 @@ static int oidc_config_merged_vhost_configs_exist(server_rec *s) {
 /*
  * SSL initialization magic copied from mod_auth_cas
  */
-#if defined(OPENSSL_THREADS) && APR_HAS_THREADS
+#if ((OPENSSL_VERSION_NUMBER < 0x10100000) && defined(OPENSSL_THREADS) && APR_HAS_THREADS)
 
 static apr_thread_mutex_t **ssl_locks;
 static int ssl_num_locks;
@@ -2013,7 +2244,7 @@ static apr_status_t oidc_cleanup_parent(void *data) {
 
 	oidc_cleanup_child(data);
 
-#if (defined (OPENSSL_THREADS) && APR_HAS_THREADS)
+#if ((OPENSSL_VERSION_NUMBER < 0x10100000) && defined (OPENSSL_THREADS) && APR_HAS_THREADS)
 	if (CRYPTO_get_locking_callback() == oidc_ssl_locking_callback)
 		CRYPTO_set_locking_callback(NULL);
 #ifdef OPENSSL_NO_THREADID
@@ -2024,7 +2255,8 @@ static apr_status_t oidc_cleanup_parent(void *data) {
 		CRYPTO_THREADID_set_callback(NULL);
 #endif /* OPENSSL_NO_THREADID */
 
-#endif /* defined(OPENSSL_THREADS) && APR_HAS_THREADS */
+#endif /* (OPENSSL_VERSION_NUMBER < 0x10100000) && defined (OPENSSL_THREADS) && APR_HAS_THREADS */
+
 	EVP_cleanup();
 	curl_global_cleanup();
 
@@ -2041,7 +2273,6 @@ static int oidc_post_config(apr_pool_t *pool, apr_pool_t *p1, apr_pool_t *p2,
 		server_rec *s) {
 	const char *userdata_key = "oidc_post_config";
 	void *data = NULL;
-	int i;
 
 	/* Since the post_config hook is invoked twice (once
 	 * for 'sanity checking' of the config and once for
@@ -2056,33 +2287,38 @@ static int oidc_post_config(apr_pool_t *pool, apr_pool_t *p1, apr_pool_t *p2,
 	}
 
 	ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
-			"%s - init - cjose %s, %s, EC=%s, GCM=%s, Redis=%s, JQ=%s",
-			NAMEVERSION,
-			cjose_version(),
-			OPENSSL_VERSION_TEXT,
+			"%s - init - cjose %s, %s, EC=%s, GCM=%s, Memcache=%s, Redis=%s, JQ=%s",
+			NAMEVERSION, cjose_version(), OPENSSL_VERSION_TEXT,
 			OIDC_JOSE_EC_SUPPORT ? "yes" : "no",
-			OIDC_JOSE_GCM_SUPPORT ? "yes" : "no",
-#ifdef USE_LIBHIREDIS
-			"yes"
+					OIDC_JOSE_GCM_SUPPORT ? "yes" : "no",
+#ifdef USE_MEMCACHE
+							"yes"
 #else
-			"no"
+							"no"
 #endif
-			,
-#ifdef USE_LIBJQ
-			"yes"
+							,
+#ifdef USE_LIBHIREDIS
+							"yes"
 #else
-			"no"
+							"no"
+#endif
+							,
+#ifdef USE_LIBJQ
+							"yes"
+#else
+							"no"
 #endif
 	);
 
 	curl_global_init(CURL_GLOBAL_ALL);
 	OpenSSL_add_all_digests();
 
-#if (defined(OPENSSL_THREADS) && APR_HAS_THREADS)
+#if ((OPENSSL_VERSION_NUMBER < 0x10100000) && defined (OPENSSL_THREADS) && APR_HAS_THREADS)
 	ssl_num_locks = CRYPTO_num_locks();
 	ssl_locks = apr_pcalloc(s->process->pool,
 			ssl_num_locks * sizeof(*ssl_locks));
 
+	int i;
 	for (i = 0; i < ssl_num_locks; i++)
 		apr_thread_mutex_create(&(ssl_locks[i]), APR_THREAD_MUTEX_DEFAULT,
 				s->process->pool);
@@ -2099,8 +2335,11 @@ static int oidc_post_config(apr_pool_t *pool, apr_pool_t *p1, apr_pool_t *p2,
 		CRYPTO_THREADID_set_callback(oidc_ssl_id_callback);
 	}
 #endif /* OPENSSL_NO_THREADID */
-#endif /* defined(OPENSSL_THREADS) && APR_HAS_THREADS */
-	apr_pool_cleanup_register(pool, s, oidc_cleanup_parent, apr_pool_cleanup_null);
+
+#endif /* (OPENSSL_VERSION_NUMBER < 0x10100000) && defined (OPENSSL_THREADS) && APR_HAS_THREADS */
+
+	apr_pool_cleanup_register(pool, s, oidc_cleanup_parent,
+			apr_pool_cleanup_null);
 
 	server_rec *sp = s;
 	while (sp != NULL) {
@@ -2133,12 +2372,29 @@ static int oidc_post_config(apr_pool_t *pool, apr_pool_t *p1, apr_pool_t *p2,
 	return oidc_config_check_merged_vhost_configs(pool, s);
 }
 
+static const char *oidc_parse_config(cmd_parms *cmd, const char *require_line,
+		const void **parsed_require_line) {
+	const char *expr_err = NULL;
+	ap_expr_info_t *expr;
+
+	expr = ap_expr_parse_cmd(cmd, require_line, AP_EXPR_FLAG_STRING_RESULT,
+		&expr_err, NULL);
+
+	if (expr_err)
+		return apr_pstrcat(cmd->temp_pool,
+			"Cannot parse expression in require line: ",
+			expr_err, NULL);
+
+	*parsed_require_line = expr;
+
+	return NULL;
+}
+
 #if MODULE_MAGIC_NUMBER_MAJOR >= 20100714
 static const authz_provider oidc_authz_claim_provider = {
 		&oidc_authz_checker_claim,
-		NULL,
+		&oidc_parse_config,
 };
-
 #ifdef USE_LIBJQ
 static const authz_provider oidc_authz_claims_expr_provider = {
 		&oidc_authz_checker_claims_expr,
@@ -2162,24 +2418,98 @@ static void oidc_child_init(apr_pool_t *p, server_rec *s) {
 		}
 		sp = sp->next;
 	}
-    apr_pool_cleanup_register(p, s, oidc_cleanup_child, apr_pool_cleanup_null);
+	apr_pool_cleanup_register(p, s, oidc_cleanup_child, apr_pool_cleanup_null);
 }
 
-/*
- * fixup handler: be authoritative for environment variables at late processing
- */
-static int oidc_auth_fixups(request_rec *r) {
-	apr_table_t *env = NULL;
-	apr_pool_userdata_get((void **) &env, OIDC_USERDATA_ENV_KEY, r->pool);
-	if ((env == NULL) || apr_is_empty_table(env))
-		return DECLINED;
+static const char oidcFilterName[] = "oidc_filter_in_filter";
 
-	oidc_debug(r, "overlaying env with %d elements",
-			apr_table_elts(env)->nelts);
+static void oidc_filter_in_insert_filter(request_rec *r) {
 
-	r->subprocess_env = apr_table_overlay(r->pool, r->subprocess_env, env);
+	if (oidc_enabled(r) == FALSE)
+		return;
 
-	return OK;
+	if (ap_is_initial_req(r) == 0)
+		return;
+
+	apr_table_t *userdata_post_params = NULL;
+	apr_pool_userdata_get((void **) &userdata_post_params,
+			OIDC_USERDATA_POST_PARAMS_KEY, r->pool);
+	if (userdata_post_params == NULL)
+		return;
+
+	ap_add_input_filter(oidcFilterName, NULL, r, r->connection);
+}
+
+typedef struct oidc_filter_in_context {
+	apr_bucket_brigade *pbbTmp;
+	apr_size_t nbytes;
+} oidc_filter_in_context;
+
+static apr_status_t oidc_filter_in_filter(ap_filter_t *f,
+		apr_bucket_brigade *brigade, ap_input_mode_t mode,
+		apr_read_type_e block, apr_off_t nbytes) {
+	oidc_filter_in_context *ctx = NULL;
+	apr_bucket *b_in = NULL, *b_out = NULL;
+	char *buf = NULL;
+	apr_table_t *userdata_post_params = NULL;
+	apr_status_t rc = APR_SUCCESS;
+
+	if (!(ctx = f->ctx)) {
+		f->ctx = ctx = apr_palloc(f->r->pool, sizeof *ctx);
+		ctx->pbbTmp = apr_brigade_create(f->r->pool,
+				f->r->connection->bucket_alloc);
+		ctx->nbytes = 0;
+	}
+
+	if (APR_BRIGADE_EMPTY(ctx->pbbTmp)) {
+		rc = ap_get_brigade(f->next, ctx->pbbTmp, mode, block, nbytes);
+
+		if (mode == AP_MODE_EATCRLF || rc != APR_SUCCESS)
+			return rc;
+	}
+
+	while (!APR_BRIGADE_EMPTY(ctx->pbbTmp)) {
+
+		b_in = APR_BRIGADE_FIRST(ctx->pbbTmp);
+
+		if (APR_BUCKET_IS_EOS(b_in)) {
+
+			APR_BUCKET_REMOVE(b_in);
+
+			apr_pool_userdata_get((void **) &userdata_post_params,
+					OIDC_USERDATA_POST_PARAMS_KEY, f->r->pool);
+
+			if (userdata_post_params != NULL) {
+				buf = apr_psprintf(f->r->pool, "%s%s",
+						ctx->nbytes > 0 ? "&" : "",
+								oidc_util_http_form_encoded_data(f->r,
+										userdata_post_params));
+				b_out = apr_bucket_heap_create(buf, strlen(buf), 0,
+						f->r->connection->bucket_alloc);
+
+				APR_BRIGADE_INSERT_TAIL(brigade, b_out);
+
+				ctx->nbytes += strlen(buf);
+
+				if (oidc_util_hdr_in_content_length_get(f->r) != NULL)
+					oidc_util_hdr_in_set(f->r, OIDC_HTTP_HDR_CONTENT_LENGTH,
+							apr_psprintf(f->r->pool, "%ld", ctx->nbytes));
+
+				apr_pool_userdata_set(NULL, OIDC_USERDATA_POST_PARAMS_KEY,
+						NULL, f->r->pool);
+			}
+
+			APR_BRIGADE_INSERT_TAIL(brigade, b_in);
+
+			break;
+		}
+
+		APR_BUCKET_REMOVE(b_in);
+		APR_BRIGADE_INSERT_TAIL(brigade, b_in);
+		ctx->nbytes += b_in->length;
+	}
+
+	return rc;
 }
 
 /*
@@ -2189,7 +2519,10 @@ void oidc_register_hooks(apr_pool_t *pool) {
 	ap_hook_post_config(oidc_post_config, NULL, NULL, APR_HOOK_LAST);
 	ap_hook_child_init(oidc_child_init, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_handler(oidc_content_handler, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_hook_fixups(oidc_auth_fixups, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_insert_filter(oidc_filter_in_insert_filter, NULL, NULL,
+			APR_HOOK_MIDDLE);
+	ap_register_input_filter(oidcFilterName, oidc_filter_in_filter, NULL,
+			AP_FTYPE_RESOURCE);
 #if MODULE_MAGIC_NUMBER_MAJOR >= 20100714
 	ap_hook_check_authn(oidc_check_user_id, NULL, NULL, APR_HOOK_MIDDLE,
 			AP_AUTH_INTERNAL_PER_CONF);
@@ -2214,7 +2547,7 @@ void oidc_register_hooks(apr_pool_t *pool) {
 const command_rec oidc_config_cmds[] = {
 
 		AP_INIT_TAKE1(OIDCProviderMetadataURL,
-				oidc_set_string_slot,
+				oidc_set_url_slot,
 				(void*)APR_OFFSETOF(oidc_cfg, provider.metadata_url),
 				RSRC_CONF,
 				"OpenID Connect OP configuration metadata URL."),
@@ -2253,6 +2586,11 @@ const command_rec oidc_config_cmds[] = {
 				(void *)APR_OFFSETOF(oidc_cfg, provider.userinfo_endpoint_url),
 				RSRC_CONF,
 				"Define the OpenID OP UserInfo Endpoint URL (e.g.: https://localhost:9031/idp/userinfo.openid)"),
+		AP_INIT_TAKE1(OIDCProviderRevocationEndpoint,
+				oidc_set_https_slot,
+				(void *)APR_OFFSETOF(oidc_cfg, provider.revocation_endpoint_url),
+				RSRC_CONF,
+				"Define the RFC 7009 Token Revocation Endpoint URL (e.g.: https://localhost:9031/as/revoke_token.oauth2)"),
 		AP_INIT_TAKE1(OIDCProviderCheckSessionIFrame,
 				oidc_set_url_slot,
 				(void *)APR_OFFSETOF(oidc_cfg, provider.check_session_iframe),
@@ -2263,6 +2601,11 @@ const command_rec oidc_config_cmds[] = {
 				(void *)APR_OFFSETOF(oidc_cfg, provider.end_session_endpoint),
 				RSRC_CONF,
 				"Define the OpenID OP End Session Endpoint URL."),
+		AP_INIT_FLAG(OIDCProviderBackChannelLogoutSupported,
+				oidc_set_flag_slot,
+				(void *)APR_OFFSETOF(oidc_cfg, provider.backchannel_logout_supported),
+				RSRC_CONF,
+				"Define whether the OP supports OpenID Connect Back Channel Logout."),
 		AP_INIT_TAKE1(OIDCProviderJwksUri,
 				oidc_set_https_slot,
 				(void *)APR_OFFSETOF(oidc_cfg, provider.jwks_uri),
@@ -2299,7 +2642,7 @@ const command_rec oidc_config_cmds[] = {
 				oidc_set_signed_response_alg,
 				(void *)APR_OFFSETOF(oidc_cfg, provider.id_token_signed_response_alg),
 				RSRC_CONF,
-				"The algorithm that the OP should use to sign the id_token (used only in dynamic client registration); must be one of [RS256|RS384|RS512|PS256|PS384|PS512|HS256|HS384|HS512]"),
+				"The algorithm that the OP must use to sign the ID token."),
 		AP_INIT_TAKE1(OIDCIDTokenEncryptedResponseAlg,
 				oidc_set_encrypted_response_alg,
 				(void *)APR_OFFSETOF(oidc_cfg, provider.id_token_encrypted_response_alg),
@@ -2474,6 +2817,11 @@ const command_rec oidc_config_cmds[] = {
 				NULL,
 				RSRC_CONF,
 				"The format in which the id_token is passed in (a) header(s); must be one or more of: claims|payload|serialized"),
+		AP_INIT_TAKE123(OIDCPassUserInfoAs,
+				oidc_set_pass_userinfo_as,
+				NULL,
+				RSRC_CONF,
+				"The format in which the userinfo is passed in (a) header(s); must be one or more of: claims|json|jwt"),
 
 		AP_INIT_TAKE1(OIDCOAuthClientID,
 				oidc_set_string_slot,
@@ -2507,6 +2855,11 @@ const command_rec oidc_config_cmds[] = {
 				(void *)APR_OFFSETOF(oidc_cfg, oauth.introspection_endpoint_auth),
 				RSRC_CONF,
 				"Specify an authentication method for the OAuth AS Introspection Endpoint (e.g.: client_secret_basic)"),
+        AP_INIT_RAW_ARGS(OIDCOAuthIntrospectionClientAuthBearerToken,
+				oidc_set_client_auth_bearer_token,
+				NULL,
+				RSRC_CONF,
+				"Specify a bearer token to authorize against the OAuth AS Introspection Endpoint (e.g.: 55554ee-2491-11e3-be72-001fe2e44345 or empty to use the introspected token itself)"),
 		AP_INIT_TAKE1(OIDCOAuthIntrospectionEndpointCert,
 				oidc_set_string_slot,
 				(void*)APR_OFFSETOF(oidc_cfg, oauth.introspection_endpoint_tls_client_cert),
@@ -2569,6 +2922,11 @@ const command_rec oidc_config_cmds[] = {
 				(void*)APR_OFFSETOF(oidc_cfg, state_timeout),
 				RSRC_CONF,
 				"Time to live in seconds for state parameter (cq. interval in which the authorization request and the corresponding response need to be completed)."),
+		AP_INIT_TAKE12(OIDCStateMaxNumberOfCookies,
+				oidc_set_max_number_of_state_cookies,
+				(void*)APR_OFFSETOF(oidc_cfg, max_number_of_state_cookies),
+				RSRC_CONF,
+				"Maximun number of parallel state cookies i.e. outstanding authorization requests and whether to delete the oldest cookie(s)."),
 		AP_INIT_TAKE1(OIDCSessionInactivityTimeout,
 				oidc_set_session_inactivity_timeout,
 				(void*)APR_OFFSETOF(oidc_cfg, session_inactivity_timeout),
@@ -2595,11 +2953,6 @@ const command_rec oidc_config_cmds[] = {
 				(void*)APR_OFFSETOF(oidc_cfg, session_cookie_chunk_size),
 				RSRC_CONF,
 				"Chunk size for client-cookie session storage type in bytes. Defaults to 4k. Set 0 to suppress chunking."),
-		AP_INIT_FLAG(OIDCScrubRequestHeaders,
-				oidc_set_flag_slot,
-				(void *) APR_OFFSETOF(oidc_cfg, scrub_request_headers),
-				RSRC_CONF,
-				"Scrub user name and claim headers from the user's request."),
 
 		AP_INIT_TAKE1(OIDCCacheType,
 				oidc_set_cache_type,
@@ -2620,11 +2973,13 @@ const command_rec oidc_config_cmds[] = {
 				(void*)APR_OFFSETOF(oidc_cfg, cache_file_clean_interval),
 				RSRC_CONF,
 				"Cache file clean interval in seconds."),
+#ifdef USE_MEMCACHE
 		AP_INIT_TAKE1(OIDCMemCacheServers,
 				oidc_set_string_slot,
 				(void*)APR_OFFSETOF(oidc_cfg, cache_memcache_servers),
 				RSRC_CONF,
 				"Memcache servers used for caching (space separated list of <hostname>[:<port>] tuples)"),
+#endif
 		AP_INIT_TAKE1(OIDCCacheShmMax,
 				oidc_set_int_slot,
 				(void*)APR_OFFSETOF(oidc_cfg, cache_shm_size_max),
@@ -2687,7 +3042,7 @@ const command_rec oidc_config_cmds[] = {
 				oidc_set_unauth_action,
 				(void *) APR_OFFSETOF(oidc_dir_cfg, unauth_action),
 				RSRC_CONF|ACCESS_CONF|OR_AUTHCFG,
-				"Sets the action taken when an unauthenticated request occurs: must be one of \"auth\" (default), \"pass\" , \"401\" or \"410\"."),
+				"Sets the action taken when an unauthenticated request occurs: must be one of \"auth\" (default), \"pass\" , \"401\", \"407\", or \"410\"."),
 		AP_INIT_TAKE1(OIDCUnAutzAction,
 				oidc_set_unautz_action,
 				(void *) APR_OFFSETOF(oidc_dir_cfg, unautz_action),
@@ -2757,5 +3112,22 @@ const command_rec oidc_config_cmds[] = {
 				(void *) APR_OFFSETOF(oidc_cfg, white_listed_claims),
 				RSRC_CONF|ACCESS_CONF|OR_AUTHCFG,
 				"Specify claims from the userinfo and/or id_token that should be stored in the session (all other claims will be discarded)."),
+		AP_INIT_TAKE1(OIDCOAuthServerMetadataURL,
+				oidc_set_url_slot,
+				(void*)APR_OFFSETOF(oidc_cfg, oauth.metadata_url),
+				RSRC_CONF,
+				"Authorization Server metadata URL."),
+		AP_INIT_TAKE1(OIDCOAuthAccessTokenBindingPolicy,
+				oidc_set_token_binding_policy,
+				(void *)APR_OFFSETOF(oidc_cfg, oauth.access_token_binding_policy),
+				RSRC_CONF,
+				"The token binding policy used for access tokens; must be one of [disabled|optional|required|enforced]"),
+
+		AP_INIT_TAKE12(OIDCRefreshAccessTokenBeforeExpiry,
+				oidc_set_refresh_access_token_before_expiry,
+				(void *)APR_OFFSETOF(oidc_dir_cfg, refresh_access_token_before_expiry),
+				RSRC_CONF|ACCESS_CONF|OR_AUTHCFG,
+				"Ensure the access token is valid for at least <x> seconds by refreshing it if required; must be: <x> [logout_on_error]; the logout_on_error performs a logout on refresh error."),
+
 		{ NULL }
 };

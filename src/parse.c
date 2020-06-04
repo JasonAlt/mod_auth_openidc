@@ -18,6 +18,7 @@
  */
 
 /***************************************************************************
+ * Copyright (C) 2017-2020 ZmartZone IAM
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -273,7 +274,9 @@ const char *oidc_parse_cache_type(apr_pool_t *pool, const char *arg,
 		oidc_cache_t **type) {
 	static char *options[] = {
 			OIDC_CACHE_TYPE_SHM,
+#ifdef USE_MEMCACHE
 			OIDC_CACHE_TYPE_MEMCACHE,
+#endif
 #ifdef USE_LIBHIREDIS
 			OIDC_CACHE_TYPE_REDIS,
 #endif
@@ -285,8 +288,10 @@ const char *oidc_parse_cache_type(apr_pool_t *pool, const char *arg,
 
 	if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_SHM) == 0) {
 		*type = &oidc_cache_shm;
+#ifdef USE_MEMCACHE
 	} else if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_MEMCACHE) == 0) {
 		*type = &oidc_cache_memcache;
+#endif
 	} else if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_FILE) == 0) {
 		*type = &oidc_cache_file;
 #ifdef USE_LIBHIREDIS
@@ -375,9 +380,9 @@ const char *oidc_parse_boolean(apr_pool_t *pool, const char *arg,
 }
 
 #define OIDC_ENDPOINT_AUTH_CLIENT_SECRET_POST  "client_secret_post"
-#define OIDC_ENDPOINT_AUTH_CLIENT_SECRET_BASIC "client_secret_basic"
 #define OIDC_ENDPOINT_AUTH_CLIENT_SECRET_JWT   "client_secret_jwt"
 #define OIDC_ENDPOINT_AUTH_PRIVATE_KEY_JWT     "private_key_jwt"
+#define OIDC_ENDPOINT_AUTH_BEARER_ACCESS_TOKEN "bearer_access_token"
 #define OIDC_ENDPOINT_AUTH_NONE                "none"
 
 /*
@@ -390,10 +395,11 @@ static const char *oidc_valid_endpoint_auth_method_impl(apr_pool_t *pool,
 			OIDC_ENDPOINT_AUTH_CLIENT_SECRET_BASIC,
 			OIDC_ENDPOINT_AUTH_CLIENT_SECRET_JWT,
 			OIDC_ENDPOINT_AUTH_NONE,
+			OIDC_ENDPOINT_AUTH_BEARER_ACCESS_TOKEN,
 			NULL,
 			NULL };
 	if (has_private_key)
-		options[3] = OIDC_ENDPOINT_AUTH_PRIVATE_KEY_JWT;
+		options[5] = OIDC_ENDPOINT_AUTH_PRIVATE_KEY_JWT;
 
 	return oidc_valid_string_option(pool, arg, options);
 }
@@ -414,7 +420,8 @@ const char *oidc_valid_response_type(apr_pool_t *pool, const char *arg) {
 	if (oidc_proto_flow_is_supported(pool, arg) == FALSE) {
 		return apr_psprintf(pool,
 				"oidc_valid_response_type: type must be one of %s",
-				apr_array_pstrcat(pool, oidc_proto_supported_flows(pool), OIDC_CHAR_PIPE));
+				apr_array_pstrcat(pool, oidc_proto_supported_flows(pool),
+						OIDC_CHAR_PIPE));
 	}
 	return NULL;
 }
@@ -456,7 +463,8 @@ const char *oidc_valid_signed_response_alg(apr_pool_t *pool, const char *arg) {
 				"unsupported/invalid signing algorithm '%s'; must be one of [%s]",
 				arg,
 				apr_array_pstrcat(pool,
-						oidc_jose_jws_supported_algorithms(pool), OIDC_CHAR_PIPE));
+						oidc_jose_jws_supported_algorithms(pool),
+						OIDC_CHAR_PIPE));
 	}
 	return NULL;
 }
@@ -470,7 +478,8 @@ const char *oidc_valid_encrypted_response_alg(apr_pool_t *pool, const char *arg)
 				"unsupported/invalid encryption algorithm '%s'; must be one of [%s]",
 				arg,
 				apr_array_pstrcat(pool,
-						oidc_jose_jwe_supported_algorithms(pool), OIDC_CHAR_PIPE));
+						oidc_jose_jwe_supported_algorithms(pool),
+						OIDC_CHAR_PIPE));
 	}
 	return NULL;
 }
@@ -484,7 +493,8 @@ const char *oidc_valid_encrypted_response_enc(apr_pool_t *pool, const char *arg)
 				"unsupported/invalid encryption type '%s'; must be one of [%s]",
 				arg,
 				apr_array_pstrcat(pool,
-						oidc_jose_jwe_supported_encryptions(pool), OIDC_CHAR_PIPE));
+						oidc_jose_jwe_supported_encryptions(pool),
+						OIDC_CHAR_PIPE));
 	}
 	return NULL;
 }
@@ -523,6 +533,27 @@ const char *oidc_valid_session_max_duration(apr_pool_t *pool, int v) {
 	return NULL;
 }
 
+#define OIDC_MAX_NUMBER_OF_STATE_COOKIES_MIN  0
+#define OIDC_MAX_NUMBER_OF_STATE_COOKIES_MAX  255
+
+/*
+ * check the maximum number of parallel state cookies
+ */
+const char *oidc_valid_max_number_of_state_cookies(apr_pool_t *pool, int v) {
+	if (v == 0) {
+		return NULL;
+	}
+	if (v < OIDC_MAX_NUMBER_OF_STATE_COOKIES_MIN) {
+		return apr_psprintf(pool, "maximum must not be less than %d",
+				OIDC_MAX_NUMBER_OF_STATE_COOKIES_MIN);
+	}
+	if (v > OIDC_MAX_NUMBER_OF_STATE_COOKIES_MAX) {
+		return apr_psprintf(pool, "maximum must not be greater than %d",
+				OIDC_MAX_NUMBER_OF_STATE_COOKIES_MAX);
+	}
+	return NULL;
+}
+
 /*
  * parse a session max duration value from the provided string
  */
@@ -535,8 +566,8 @@ const char *oidc_parse_session_max_duration(apr_pool_t *pool, const char *arg,
 /*
  * parse a base64 encoded binary value from the provided string
  */
-static char *oidc_parse_base64(apr_pool_t *pool, const char *input,
-		char **output, int *output_len) {
+char *oidc_parse_base64(apr_pool_t *pool, const char *input, char **output,
+		int *output_len) {
 	int len = apr_base64_decode_len(input);
 	*output = apr_palloc(pool, len);
 	*output_len = apr_base64_decode(*output, input);
@@ -699,10 +730,91 @@ const char *oidc_parse_pass_idtoken_as(apr_pool_t *pool, const char *v1,
 	return NULL;
 }
 
+#define OIDC_PASS_USERINFO_AS_CLAIMS_STR      "claims"
+#define OIDC_PASS_USERINFO_AS_JSON_OBJECT_STR "json"
+#define OIDC_PASS_USERINFO_AS_JWT_STR         "jwt"
+
+/*
+ * convert a "pass userinfo as" value to an integer
+ */
+static int oidc_parse_pass_userinfo_as_str2int(const char *v) {
+	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_CLAIMS_STR) == 0)
+		return OIDC_PASS_USERINFO_AS_CLAIMS;
+	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_JSON_OBJECT_STR) == 0)
+		return OIDC_PASS_USERINFO_AS_JSON_OBJECT;
+	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_JWT_STR) == 0)
+		return OIDC_PASS_USERINFO_AS_JWT;
+	return -1;
+}
+
+/*
+ * parse a "pass id token as" value from the provided strings
+ */
+const char *oidc_parse_pass_userinfo_as(apr_pool_t *pool, const char *v1,
+		const char *v2, const char *v3, int *int_value) {
+	static char *options[] = {
+			OIDC_PASS_USERINFO_AS_CLAIMS_STR,
+			OIDC_PASS_USERINFO_AS_JSON_OBJECT_STR,
+			OIDC_PASS_USERINFO_AS_JWT_STR,
+			NULL };
+	const char *rv = NULL;
+	rv = oidc_valid_string_option(pool, v1, options);
+	if (rv != NULL)
+		return rv;
+	*int_value = oidc_parse_pass_userinfo_as_str2int(v1);
+
+	if (v2 == NULL)
+		return NULL;
+
+	rv = oidc_valid_string_option(pool, v2, options);
+	if (rv != NULL)
+		return rv;
+	*int_value |= oidc_parse_pass_userinfo_as_str2int(v2);
+
+	if (v3 == NULL)
+		return NULL;
+
+	rv = oidc_valid_string_option(pool, v3, options);
+	if (rv != NULL)
+		return rv;
+	*int_value |= oidc_parse_pass_userinfo_as_str2int(v3);
+
+	return NULL;
+}
+
+#define OIDC_LOGOUT_ON_ERROR_REFRESH_STR "logout_on_error"
+
+/*
+ * convert a "logout_on_error" to an integer
+ */
+static int oidc_parse_logout_on_error_refresh_as_str2int(const char *v) {
+	if (apr_strnatcmp(v, OIDC_LOGOUT_ON_ERROR_REFRESH_STR) == 0)
+		return OIDC_LOGOUT_ON_ERROR_REFRESH;
+	return OIDC_CONFIG_POS_INT_UNSET;
+}
+
+/*
+ * parse a "logout_on_error" value from the provided strings
+ */
+const char *oidc_parse_logout_on_error_refresh_as(apr_pool_t *pool, const char *v1,
+		int *int_value) {
+	static char *options[] = {
+			OIDC_LOGOUT_ON_ERROR_REFRESH_STR,
+			NULL };
+	const char *rv = NULL;
+	rv = oidc_valid_string_option(pool, v1, options);
+	if (rv != NULL)
+		return rv;
+	*int_value = oidc_parse_logout_on_error_refresh_as_str2int(v1);
+
+	return NULL;
+}
+
 #define OIDC_OAUTH_ACCEPT_TOKEN_IN_HEADER_STR "header"
 #define OIDC_OAUTH_ACCEPT_TOKEN_IN_POST_STR   "post"
 #define OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY_STR  "query"
 #define OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_STR "cookie"
+#define OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC_STR  "basic"
 
 /*
  * convert an "accept OAuth 2.0 token in" byte value to a string representation
@@ -726,6 +838,10 @@ const char *oidc_accept_oauth_token_in2str(apr_pool_t *pool, apr_byte_t v) {
 		options[i] = OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_STR;
 		i++;
 	}
+	if (v & OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC) {
+		options[i] = OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC_STR;
+		i++;
+	}
 	return oidc_flatten_list_options(pool, options);
 }
 
@@ -741,6 +857,8 @@ static apr_byte_t oidc_parse_oauth_accept_token_in_str2byte(const char *v) {
 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY;
 	if (strstr(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_STR) == v)
 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE;
+	if (strstr(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC_STR) == v)
+		return OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC;
 	return OIDC_OAUTH_ACCEPT_TOKEN_IN_DEFAULT;
 }
 
@@ -757,6 +875,7 @@ const char *oidc_parse_accept_oauth_token_in(apr_pool_t *pool, const char *arg,
 			OIDC_OAUTH_ACCEPT_TOKEN_IN_POST_STR,
 			OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY_STR,
 			OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_STR,
+			OIDC_OAUTH_ACCEPT_TOKEN_IN_BASIC_STR,
 			NULL };
 	const char *rv = NULL;
 
@@ -769,8 +888,6 @@ const char *oidc_parse_accept_oauth_token_in(apr_pool_t *pool, const char *arg,
 	} else {
 		p = OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_NAME_DEFAULT;
 	}
-	apr_hash_set(list_options, OIDC_OAUTH_ACCEPT_TOKEN_IN_OPTION_COOKIE_NAME,
-			APR_HASH_KEY_STRING, p);
 
 	rv = oidc_valid_string_option(pool, s, options);
 	if (rv != NULL)
@@ -781,6 +898,12 @@ const char *oidc_parse_accept_oauth_token_in(apr_pool_t *pool, const char *arg,
 		*b_value = v;
 	else
 		*b_value |= v;
+
+	if (v == OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE) {
+		apr_hash_set(list_options,
+				OIDC_OAUTH_ACCEPT_TOKEN_IN_OPTION_COOKIE_NAME,
+				APR_HASH_KEY_STRING, p);
+	}
 
 	return NULL;
 }
@@ -863,6 +986,7 @@ const char *oidc_parse_set_claims_as(apr_pool_t *pool, const char *arg,
 #define OIDC_UNAUTH_ACTION_AUTH_STR "auth"
 #define OIDC_UNAUTH_ACTION_PASS_STR "pass"
 #define OIDC_UNAUTH_ACTION_401_STR  "401"
+#define OIDC_UNAUTH_ACTION_407_STR  "407"
 #define OIDC_UNAUTH_ACTION_410_STR  "410"
 
 /*
@@ -874,6 +998,7 @@ const char *oidc_parse_unauth_action(apr_pool_t *pool, const char *arg,
 			OIDC_UNAUTH_ACTION_AUTH_STR,
 			OIDC_UNAUTH_ACTION_PASS_STR,
 			OIDC_UNAUTH_ACTION_401_STR,
+			OIDC_UNAUTH_ACTION_407_STR,
 			OIDC_UNAUTH_ACTION_410_STR,
 			NULL };
 	const char *rv = oidc_valid_string_option(pool, arg, options);
@@ -886,6 +1011,8 @@ const char *oidc_parse_unauth_action(apr_pool_t *pool, const char *arg,
 		*action = OIDC_UNAUTH_PASS;
 	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_401_STR) == 0)
 		*action = OIDC_UNAUTH_RETURN401;
+	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_407_STR) == 0)
+		*action = OIDC_UNAUTH_RETURN407;
 	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_410_STR) == 0)
 		*action = OIDC_UNAUTH_RETURN410;
 
@@ -921,13 +1048,14 @@ const char *oidc_parse_unautz_action(apr_pool_t *pool, const char *arg,
 }
 
 /*
- * check if there's one valid entry in a string of arrays
+ * check if there's a valid entry in a string of arrays, with a preference
  */
 const char *oidc_valid_string_in_array(apr_pool_t *pool, json_t *json,
 		const char *key, oidc_valid_function_t valid_function, char **value,
-		apr_byte_t optional) {
+		apr_byte_t optional, const char *preference) {
 	int i = 0;
 	json_t *json_arr = json_object_get(json, key);
+	apr_byte_t found = FALSE;
 	if ((json_arr != NULL) && (json_is_array(json_arr))) {
 		for (i = 0; i < json_array_size(json_arr); i++) {
 			json_t *elem = json_array_get(json_arr, i);
@@ -938,12 +1066,21 @@ const char *oidc_valid_string_in_array(apr_pool_t *pool, json_t *json,
 				continue;
 			}
 			if (valid_function(pool, json_string_value(elem)) == NULL) {
-				if (value != NULL)
-					*value = apr_pstrdup(pool, json_string_value(elem));
-				break;
+				found = TRUE;
+				if (value != NULL) {
+					if ((preference != NULL)
+							&& (apr_strnatcmp(json_string_value(elem),
+									preference) == 0)) {
+						*value = apr_pstrdup(pool, json_string_value(elem));
+						break;
+					}
+					if (*value == NULL) {
+						*value = apr_pstrdup(pool, json_string_value(elem));
+					}
+				}
 			}
 		}
-		if (i == json_array_size(json_arr)) {
+		if (found == FALSE) {
 			return apr_psprintf(pool,
 					"could not find a valid array string element for entry \"%s\"",
 					key);
@@ -1087,7 +1224,6 @@ const char *oidc_token_binding_policy2str(apr_pool_t *pool, int v) {
 	return NULL;
 }
 
-
 /*
  * check token binding policy string value
  */
@@ -1104,7 +1240,8 @@ const char *oidc_valid_token_binding_policy(apr_pool_t *pool, const char *arg) {
 /*
  * parse token binding policy
  */
-const char *oidc_parse_token_binding_policy(apr_pool_t *pool, const char *arg, int *policy) {
+const char *oidc_parse_token_binding_policy(apr_pool_t *pool, const char *arg,
+		int *policy) {
 	const char *rv = oidc_valid_token_binding_policy(pool, arg);
 	if (rv != NULL)
 		return rv;
@@ -1150,4 +1287,40 @@ const char *oidc_parse_auth_request_method(apr_pool_t *pool, const char *arg,
 		*method = OIDC_AUTH_REQUEST_METHOD_POST;
 
 	return NULL;
+}
+
+/*
+ * parse the maximum number of parallel state cookies
+ */
+const char *oidc_parse_max_number_of_state_cookies(apr_pool_t *pool,
+		const char *arg1, const char *arg2, int *int_value, int *bool_value) {
+	const char *rv = NULL;
+
+	rv = oidc_parse_int_valid(pool, arg1, int_value,
+			oidc_valid_max_number_of_state_cookies);
+	if ((rv == NULL) && (arg2 != NULL))
+		rv = oidc_parse_boolean(pool, arg2, bool_value);
+	return rv;
+}
+
+#define OIDC_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY_MIN 0
+#define OIDC_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY_MAX 3600 * 24 * 365
+
+/*
+ * check the boundaries for the refresh access token expiry TTL
+ */
+const char *oidc_valid_refresh_access_token_before_expiry(apr_pool_t *pool,
+		int v) {
+	return oidc_valid_int_min_max(pool, v,
+			OIDC_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY_MIN,
+			OIDC_REFRESH_ACCESS_TOKEN_BEFORE_EXPIRY_MAX);
+}
+
+/*
+ * parse an access token expiry TTL from the provided string
+ */
+const char *oidc_parse_refresh_access_token_before_expiry(apr_pool_t *pool,
+		const char *arg, int *int_value) {
+	return oidc_parse_int_valid(pool, arg, int_value,
+			oidc_valid_refresh_access_token_before_expiry);
 }

@@ -18,6 +18,7 @@
  */
 
 /***************************************************************************
+ * Copyright (C) 2017-2020 ZmartZone IAM
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -64,6 +65,7 @@ extern module AP_MODULE_DECLARE_DATA auth_openidc_module;
 typedef struct oidc_cache_cfg_shm_t {
 	apr_shm_t *shm;
 	oidc_cache_mutex_t *mutex;
+	apr_byte_t is_parent;
 } oidc_cache_cfg_shm_t;
 
 /* size of key in cached key/value pairs */
@@ -87,6 +89,7 @@ static void *oidc_cache_shm_cfg_create(apr_pool_t *pool) {
 			sizeof(oidc_cache_cfg_shm_t));
 	context->shm = NULL;
 	context->mutex = oidc_cache_mutex_create(pool);
+	context->is_parent = TRUE;
 	return context;
 }
 
@@ -106,7 +109,8 @@ int oidc_cache_shm_post_config(server_rec *s) {
 
 	/* create the shared memory segment */
 	apr_status_t rv = apr_shm_create(&context->shm,
-			cfg->cache_shm_entry_size_max * cfg->cache_shm_size_max,
+			(apr_size_t) cfg->cache_shm_entry_size_max
+			* cfg->cache_shm_size_max,
 			NULL, s->process->pool);
 	if (rv != APR_SUCCESS) {
 		oidc_serror(s, "apr_shm_create failed to create shared memory segment");
@@ -140,6 +144,8 @@ int oidc_cache_shm_child_init(apr_pool_t *p, server_rec *s) {
 			&auth_openidc_module);
 	oidc_cache_cfg_shm_t *context = (oidc_cache_cfg_shm_t *) cfg->cache_cfg;
 
+	context->is_parent = FALSE;
+
 	/* initialize the lock for the child process */
 	return oidc_cache_mutex_child_init(p, s, context->mutex);
 }
@@ -147,9 +153,20 @@ int oidc_cache_shm_child_init(apr_pool_t *p, server_rec *s) {
 /*
  * assemble single key name based on section/key input
  */
-static char *oidc_cache_shm_get_key(apr_pool_t *pool, const char *section,
+static char *oidc_cache_shm_get_key(request_rec *r, const char *section,
 		const char *key) {
-	return apr_psprintf(pool, "%s:%s", section, key);
+
+	char *section_key = apr_psprintf(r->pool, "%s:%s", section, key);
+
+	/* check that the passed in key is valid */
+	if (strlen(section_key) >= OIDC_CACHE_SHM_KEY_MAX) {
+		oidc_error(r,
+				"could not construct cache key since key size is too large (%d >= %d) (%s)",
+				(int )strlen(section_key), OIDC_CACHE_SHM_KEY_MAX, section_key);
+		return NULL;
+	}
+
+	return section_key;
 }
 
 /*
@@ -163,12 +180,14 @@ static apr_byte_t oidc_cache_shm_get(request_rec *r, const char *section,
 	oidc_cache_cfg_shm_t *context = (oidc_cache_cfg_shm_t *) cfg->cache_cfg;
 
 	int i;
-	const char *section_key = oidc_cache_shm_get_key(r->pool, section, key);
+	const char *section_key = oidc_cache_shm_get_key(r, section, key);
+	if (section_key == NULL)
+		return FALSE;
 
 	*value = NULL;
 
 	/* grab the global lock */
-	if (oidc_cache_mutex_lock(r, context->mutex) == FALSE)
+	if (oidc_cache_mutex_lock(r->server, context->mutex) == FALSE)
 		return FALSE;
 
 	/* get the pointer to the start of the shared memory block */
@@ -202,7 +221,7 @@ static apr_byte_t oidc_cache_shm_get(request_rec *r, const char *section,
 	}
 
 	/* release the global lock */
-	oidc_cache_mutex_unlock(r, context->mutex);
+	oidc_cache_mutex_unlock(r->server, context->mutex);
 
 	return TRUE;
 }
@@ -223,14 +242,9 @@ static apr_byte_t oidc_cache_shm_set(request_rec *r, const char *section,
 	int i;
 	apr_time_t age;
 
-	const char *section_key = oidc_cache_shm_get_key(r->pool, section, key);
-
-	/* check that the passed in key is valid */
-	if (strlen(section_key) > OIDC_CACHE_SHM_KEY_MAX) {
-		oidc_error(r, "could not store value since key size is too large (%s)",
-				section_key);
+	const char *section_key = oidc_cache_shm_get_key(r, section, key);
+	if (section_key == NULL)
 		return FALSE;
-	}
 
 	/* check that the passed in value is valid */
 	if ((value != NULL)
@@ -246,7 +260,7 @@ static apr_byte_t oidc_cache_shm_set(request_rec *r, const char *section,
 	}
 
 	/* grab the global lock */
-	if (oidc_cache_mutex_lock(r, context->mutex) == FALSE)
+	if (oidc_cache_mutex_lock(r->server, context->mutex) == FALSE)
 		return FALSE;
 
 	/* get a pointer to the shared memory block */
@@ -319,7 +333,7 @@ static apr_byte_t oidc_cache_shm_set(request_rec *r, const char *section,
 	}
 
 	/* release the global lock */
-	oidc_cache_mutex_unlock(r, context->mutex);
+	oidc_cache_mutex_unlock(r->server, context->mutex);
 
 	return TRUE;
 }
@@ -330,17 +344,24 @@ static int oidc_cache_shm_destroy(server_rec *s) {
 	oidc_cache_cfg_shm_t *context = (oidc_cache_cfg_shm_t *) cfg->cache_cfg;
 	apr_status_t rv = APR_SUCCESS;
 
-	if (context->shm) {
-		apr_global_mutex_lock(context->mutex->mutex);
+	if (context == NULL)
+		return rv;
+
+	if ((context->is_parent == TRUE) && (context->shm)) {
+		oidc_cache_mutex_lock(s, context->mutex);
 		if (*context->mutex->sema == 1) {
 			rv = apr_shm_destroy(context->shm);
 			oidc_sdebug(s, "apr_shm_destroy returned: %d", rv);
 		}
 		context->shm = NULL;
-		apr_global_mutex_unlock(context->mutex->mutex);
+		oidc_cache_mutex_unlock(s, context->mutex);
 	}
 
+	if (context->mutex == NULL)
+		return rv;
+
 	oidc_cache_mutex_destroy(s, context->mutex);
+	context->mutex = NULL;
 
 	return rv;
 }
