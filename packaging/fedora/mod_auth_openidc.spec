@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
-Version:	2.3.2h
-Release:	2%{?dist}
+Version:	2.3.2i
+Release:	1%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -62,6 +62,9 @@ echo 'LoadModule auth_openidc_module modules/mod_auth_openidc.so' > \
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
 
 %changelog
+* Thu Jun 04 2020 Globus Toolkit <support@globus.org> 2.3.2i
+- Fix bounds issue
+
 * Wed Jun 13 2018 Globus Toolkit <support@globus.org> 2.3.2h
 - Add inter-module request-specific OIDCAuthRequestParams
 
