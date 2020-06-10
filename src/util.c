@@ -1766,6 +1766,7 @@ void oidc_util_set_app_infos(request_rec *r, const json_t *j_attrs,
 			/* string to hold the concatenated array string values */
 			char *s_concat = apr_pstrdup(r->pool, "");
 			int i = 0;
+			int all_objects = 1;
 
 			/* loop over the array */
 			for (i = 0; i < json_array_size(j_value); i++) {
@@ -1775,7 +1776,7 @@ void oidc_util_set_app_infos(request_rec *r, const json_t *j_attrs,
 
 				/* check if it is a string */
 				if (json_is_string(elem)) {
-
+					all_objects = 0;
 					/* concatenate the string to the s_concat value using the configured separator char */
 					// TODO: escape the delimiter in the values (maybe reuse/extract url-formatted code from oidc_session_identity_encode)
 					if (apr_strnatcmp(s_concat, "") != 0) {
@@ -1787,6 +1788,7 @@ void oidc_util_set_app_infos(request_rec *r, const json_t *j_attrs,
 					}
 
 				} else if (json_is_boolean(elem)) {
+					all_objects = 0;
 
 					if (apr_strnatcmp(s_concat, "") != 0) {
 						s_concat = apr_psprintf(r->pool, "%s%s%s", s_concat,
@@ -1798,6 +1800,9 @@ void oidc_util_set_app_infos(request_rec *r, const json_t *j_attrs,
 					}
 
 				} else {
+					if (!json_is_object(elem)) {
+						all_objects = 0;
+                                        }
 
 					/* don't know how to handle a non-string array element */
 					oidc_warn(r,
@@ -1806,9 +1811,15 @@ void oidc_util_set_app_infos(request_rec *r, const json_t *j_attrs,
 				}
 			}
 
-			/* set the concatenated string */
-			oidc_util_set_app_info(r, s_key, s_concat, claim_prefix, as_header,
-					as_env_var);
+			if (*s_concat == 0 && all_objects) {
+				oidc_util_set_app_info(r, s_key,
+						oidc_util_encode_json_object(r, j_value, 0), claim_prefix,
+						as_header, as_env_var);
+                        } else {
+				/* set the concatenated string */
+				oidc_util_set_app_info(r, s_key, s_concat, claim_prefix, as_header,
+						as_env_var);
+			}
 
 		} else {
 

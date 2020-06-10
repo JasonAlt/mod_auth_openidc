@@ -1,5 +1,5 @@
 Name:		mod_auth_openidc
-Version:	2.3.2i
+Version:	2.3.2j
 Release:	1%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
@@ -62,6 +62,9 @@ echo 'LoadModule auth_openidc_module modules/mod_auth_openidc.so' > \
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
 
 %changelog
+* Wed Jun 09 2020 Globus Toolkit <support@globus.org> 2.3.2j
+- Pass list of objects through as claims
+
 * Thu Jun 04 2020 Globus Toolkit <support@globus.org> 2.3.2i
 - Fix bounds issue
 
