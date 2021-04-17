@@ -5,6 +5,7 @@
 def CJOSE_PACKAGE_VERSION="0.5.1"
 def CJOSE_SOURCE_TARBALL_NAME = "${CJOSE_PACKAGE_VERSION}.tar.gz"
 def CJOSE_SOURCE_TARBALL_URL = "https://github.com/cisco/cjose/archive/${CJOSE_SOURCE_TARBALL_NAME}"
+def CJOSE_EXCLUDE = []
 
 // not really an epic, but used to test the build sys
 env.EPIC = "2729"
@@ -56,7 +57,7 @@ pipeline {
                             def (mock_build_targets, _deb) = enumerateBuildTargets()
                             echo "mock_build_targets=${mock_build_targets}"
                             echo "_deb=${_deb}"
-                            env.exclude_mock = mock_build_targets.findAll {
+                            CJOSE_EXCLUDE = mock_build_targets.findAll {
                                 it.startsWith("fedora-")
                             }
                             stash(name: env.CJOSE_SOURCE_STASH, includes: "${env.CJOSE_SOURCE_STASH}/**/*")
@@ -66,14 +67,14 @@ pipeline {
                 stage ("Build cjose") {
                     steps {
                         script {
-                            echo "env.exclude_mock=${env.exclude_mock}"
+                            echo "CJOSE_EXCLUDE = ${CJOSE_EXCLUDE}"
                             // we only need to build this for el-7 and el-8
                             env.CJOSE_RPM_ARTIFACTS_STASH = buildMock(
                                 env.CJOSE_SOURCE_STASH,
                                 CJOSE_SOURCE_TARBALL_NAME,
                                 false,
                                 getClubhouseEpic(),
-                                env.exclude_mock)
+                                CJOSE_EXCLUDE)
                         }
                     }
                 }
