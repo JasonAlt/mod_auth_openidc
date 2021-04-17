@@ -127,11 +127,12 @@ pipeline {
                                 sh """#! /bin/sh
                                     set -e
                                     set -x
-                                    ls -Ra
+                                    (cd ..;
                                     autoreconf -i
                                     PKG_CONFIG=true ./configure --with-apxs2=/bin/true
                                     rm *.tar.gz
                                     make distfile
+                                    )
                                     cp ../packaging/fedora/mod_auth_openidc.spec .
                                     cp -R ../packaging/debian/mod-auth-openidc/debian debian
                                 """
