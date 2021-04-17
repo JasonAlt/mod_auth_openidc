@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
 Version:	2.3.2j
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -15,10 +15,10 @@ BuildRequires:	openssl-devel
 BuildRequires:	curl-devel
 BuildRequires:	jansson-devel
 BuildRequires:	cjose-devel
+%if %{?rhel}%{!?rhel:0} != 8
 BuildRequires:	jq-devel
-%if %{?rhel}%{!?rhel:0} != 6
-BuildRequires:	hiredis-devel
 %endif
+BuildRequires:	hiredis-devel
 BuildRequires:	pcre-devel
 BuildRequires:	autoconf
 BuildRequires:	automake
