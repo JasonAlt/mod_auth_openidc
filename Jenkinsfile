@@ -107,7 +107,8 @@ pipeline {
             when {
                 anyOf {
                     equals expected: true, actual: params.MOD_AUTH_OPENIDC;
-                    changeset "*";
+                    changeset "Makefile";
+                    changeset "configure.ac";
                     changeset "src/**/*";
                     changeset "test/**/*";
                     changeset "packaging/fedora/mod_auth_openidc.spec";
