@@ -60,7 +60,7 @@ pipeline {
                 steps {
                     script {
                         // we only need to build this for el-7 and el-8
-                        def mock_build_targets, _ = enumerateBuildTargets()
+                        def mock_build_targets, _deb = enumerateBuildTargets()
                         def exclude_mock = mock_build_targets.findAll {
                             it.startsWith("fedora-")
                         }
