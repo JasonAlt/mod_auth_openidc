@@ -91,13 +91,11 @@ pipeline {
                                 stash(name: stashname, includes: "**/*")
                                 deleteDir()
                             }
-                            /*
                             publishResults(
                                 stashname,
                                 "cjose",
                                 env.CJOSE_PACKAGE_VERSION,
                                 false)
-                            */
                         }
                     }
                 }
@@ -187,13 +185,11 @@ pipeline {
                                 stash(name: stashname, includes: "**/*")
                                 deleteDir()
                             }
-                            /*
                             publishResults(
                                 stashname,
                                 "mod_auth_openidc",
                                 env.OIDC_VERSION,
                                 false)
-                            */
                         }
                     }
                 }
