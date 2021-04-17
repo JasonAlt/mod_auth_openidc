@@ -110,7 +110,7 @@ pipeline {
                 checkout scm
                 script {
                     automakePipeline(
-                        source_dir: "."
+                        source_dir: ".",
                         debian_dir: "packaging/debian/mod-auth-openidc/debian",
                         spec_file: "packaging/fedora/mod_auth_openidc.spec"
                     )
