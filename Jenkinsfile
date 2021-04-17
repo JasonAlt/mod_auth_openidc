@@ -53,7 +53,7 @@ pipeline {
                                     cp -R ../packaging/debian/cjose/debian debian
                                 """
                             }
-                            def mock_build_targets, _deb = enumerateBuildTargets()
+                            def (mock_build_targets, _deb) = enumerateBuildTargets()
                             echo "mock_build_targets=${mock_build_targets}"
                             echo "_deb=${_deb}"
                             env.exclude_mock = mock_build_targets.findAll {
