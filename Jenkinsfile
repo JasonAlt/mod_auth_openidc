@@ -156,14 +156,15 @@ pipeline {
                                 false,
                                 getClubhouseEpic(),
                                 null)
-                        }, "rpm": {
-                            env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH = buildMock(
-                                env.MOD_AUTH_OIDC_SOURCE_STASH,
-                                env.OIDC_TARBALL,
-                                false,
-                                getClubhouseEpic(),
-                                null)
-                        }, "failFast": false
+                            }, "rpm": {
+                                env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH = buildMock(
+                                    env.MOD_AUTH_OIDC_SOURCE_STASH,
+                                    env.OIDC_TARBALL,
+                                    false,
+                                    getClubhouseEpic(),
+                                    null)
+                            }, "failFast": false
+                        }
                     }
                 }
                 stage ("Publish mod-auth-oidc") {
