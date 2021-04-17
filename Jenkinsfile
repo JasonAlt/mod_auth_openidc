@@ -39,7 +39,7 @@ pipeline {
                 }
             }
             stages {
-                stage ("Prepare Source") {
+                stage ("Prepare cjose Source") {
                     agent {label "create_source_package"}
                     steps {
                         checkout scm
@@ -115,13 +115,82 @@ pipeline {
                     changeset "packaging/debian/mod-auth-openidc/debian/**/*";
                 }
             }
-            steps {
-                script {
-                    automakePipeline(
-                        source_dir: ".",
-                        debian_dir: "packaging/debian/mod-auth-openidc/debian",
-                        spec_file: "packaging/fedora/mod_auth_openidc.spec"
-                    )
+            stages {
+                stage ("Prepare mod-auth-oidc Source") {
+                    agent {label "create_source_package"}
+                    steps {
+                        checkout scm
+                        script {
+                            env.MOD_AUTH_OIDC_SOURCE_STASH = "${UUID.randomUUID()}"
+
+                            dirs (path: env.MOD_AUTH_OIDC_SOURCE_STASH, clean: true) {
+                                sh """#! /bin/sh
+                                    set -e
+                                    autoreconf -i
+                                    PKG_CONFIG=true ./configure --with-apxs2=/bin/true
+                                    rm *.tar.gz
+                                    make distfile
+                                    cp ../packaging/fedora/mod_auth_openidc.spec .
+                                    cp -R ../packaging/debian/mod-auth-openidc/debian debian
+                                """
+                                env.OIDC_TARBALL = sh(
+                                    script: "ls -1 *.tar.gz",
+                                    returnStdout: true).trim()
+                                env.OIDC_VERSION = sh(
+                                    script: "./configure --version | awk '{print \$1; exit}'",
+                                    returnStdout: true).trim()
+                            }
+                            stash(
+                                name: env.MOD_AUTH_OIDC_SOURCE_STASH,
+                                includes: "${env.MOD_AUTH_OIDC_SOURCE_STASH}/*.tar.gz,${env.MOD_AUTH_OIDC_SOURCE_STASH}/*.spec,${env.MOD_AUTH_OIDC_SOURCE_STASH}/debian/**/*")
+                        }
+                    }
+                }
+                stage ("Build mod-auth-oidc") {
+                    steps {
+                        script {
+                            parallel "debian": {
+                                env.MOD_AUTH_OIDC_DEB_ARTIFACTS_STASH = buildDebian(
+                                env.MOD_AUTH_OIDC_SOURCE_STASH,
+                                env.OIDC_TARBALL,
+                                false,
+                                getClubhouseEpic(),
+                                null)
+                        }, "rpm": {
+                            env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH = buildMock(
+                                env.MOD_AUTH_OIDC_SOURCE_STASH,
+                                env.OIDC_TARBALL,
+                                false,
+                                getClubhouseEpic(),
+                                null)
+                        }, "failFast": false
+                    }
+                }
+                stage ("Publish mod-auth-oidc") {
+                    agent { label "master" }
+                    steps {
+                        script {
+                            def stashname = "${UUID.randomUUID()}"
+
+                            dir("artifacts") {
+                                if (env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH) {
+                                    unstash(name: env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH)
+                                }
+                                if (env.MOD_AUTH_OIDC_DEB_ARTIFACTS_STASH) {
+                                    unstash(name: env.MOD_AUTH_OIDC_DEB_ARTIFACTS_STASH)
+                                }
+                                stash(name: stashname, includes: "**/*")
+                                deleteDir()
+                            }
+                            /*
+                            publishResults(
+                                stashname,
+                                "mod_auth_openidc",
+                                env.OIDC_VERSION,
+                                false)
+                            */
+                        }
+                    }
                 }
             }
         }
