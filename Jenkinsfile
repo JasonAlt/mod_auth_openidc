@@ -64,6 +64,7 @@ pipeline {
                 stage ("Build cjose") {
                     steps {
                         script {
+                            echo "env.exclude_mock=${env.exclude_mock}"
                             // we only need to build this for el-7 and el-8
                             env.CJOSE_RPM_ARTIFACTS_STASH = buildMock(
                                 env.CJOSE_SOURCE_STASH,
