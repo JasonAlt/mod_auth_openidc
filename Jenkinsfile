@@ -37,60 +37,62 @@ pipeline {
                     changeset "packaging/fedora/cjose.spec";
                 }
             }
-            stage ("Prepare Source") {
-                agent any
-                steps {
-                    checkout scm
-                    script {
-                        env.CJOSE_SOURCE_STASH = "${UUID.randomUUID()}"
+            stages {
+                stage ("Prepare Source") {
+                    agent any
+                    steps {
+                        checkout scm
+                        script {
+                            env.CJOSE_SOURCE_STASH = "${UUID.randomUUID()}"
 
-                        dirs (path: env.CJOSE_SOURCE_STASH, clean: true) {
-                            sh """#! /bin/sh
-                                set -e
-                                curl -LOs "${CJOSE_SOURCE_TARBALL_URL}"
-                                cp ../packaging/fedora/cjose.spec .
-                                cp -R ../packaging/debian/cjose/debian debian
-                            """
-                        }
-                        stash(name: env.CJOSE_SOURCE_STASH, includes: "${env.CJOSE_SOURCE_STASH}/**/*")
-                    }
-                }
-            }
-            stage ("Build cjose") {
-                steps {
-                    script {
-                        // we only need to build this for el-7 and el-8
-                        def mock_build_targets, _deb = enumerateBuildTargets()
-                        def exclude_mock = mock_build_targets.findAll {
-                            it.startsWith("fedora-")
-                        }
-                        env.CJOSE_RPM_ARTIFACTS_STASH = buildMock(
-                            env.CJOSE_SOURCE_STASH,
-                            CJOSE_SOURCE_TARBALL_NAME,
-                            false,
-                            getClubhouseEpic(),
-                            exclude_mock)
-                    }
-                }
-            }
-            stage ("Publish cjose") {
-                agent { label "master" }
-                steps {
-                    script {
-                        def stashname = "${UUID.randomUUID()}"
-
-                        dir("artifacts") {
-                            if (env.CJOSE_RPM_ARTIFACTS_STASH) {
-                                unstash(name: env.CJOSE_RPM_ARTIFACTS_STASH)
+                            dirs (path: env.CJOSE_SOURCE_STASH, clean: true) {
+                                sh """#! /bin/sh
+                                    set -e
+                                    curl -LOs "${CJOSE_SOURCE_TARBALL_URL}"
+                                    cp ../packaging/fedora/cjose.spec .
+                                    cp -R ../packaging/debian/cjose/debian debian
+                                """
                             }
-                            stash(name: stashname, includes: "**/*")
-                            deleteDir()
+                            stash(name: env.CJOSE_SOURCE_STASH, includes: "${env.CJOSE_SOURCE_STASH}/**/*")
                         }
-                        publishResults(
-                            stashname,
-                            "cjose",
-                            env.CJOSE_PACKAGE_VERSION,
-                            false)
+                    }
+                }
+                stage ("Build cjose") {
+                    steps {
+                        script {
+                            // we only need to build this for el-7 and el-8
+                            def mock_build_targets, _deb = enumerateBuildTargets()
+                            def exclude_mock = mock_build_targets.findAll {
+                                it.startsWith("fedora-")
+                            }
+                            env.CJOSE_RPM_ARTIFACTS_STASH = buildMock(
+                                env.CJOSE_SOURCE_STASH,
+                                CJOSE_SOURCE_TARBALL_NAME,
+                                false,
+                                getClubhouseEpic(),
+                                exclude_mock)
+                        }
+                    }
+                }
+                stage ("Publish cjose") {
+                    agent { label "master" }
+                    steps {
+                        script {
+                            def stashname = "${UUID.randomUUID()}"
+
+                            dir("artifacts") {
+                                if (env.CJOSE_RPM_ARTIFACTS_STASH) {
+                                    unstash(name: env.CJOSE_RPM_ARTIFACTS_STASH)
+                                }
+                                stash(name: stashname, includes: "**/*")
+                                deleteDir()
+                            }
+                            publishResults(
+                                stashname,
+                                "cjose",
+                                env.CJOSE_PACKAGE_VERSION,
+                                false)
+                        }
                     }
                 }
             }
