@@ -88,11 +88,13 @@ pipeline {
                                 stash(name: stashname, includes: "**/*")
                                 deleteDir()
                             }
+                            /*
                             publishResults(
                                 stashname,
                                 "cjose",
                                 env.CJOSE_PACKAGE_VERSION,
                                 false)
+                            */
                         }
                     }
                 }
