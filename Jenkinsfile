@@ -39,7 +39,7 @@ pipeline {
             }
             stages {
                 stage ("Prepare Source") {
-                    agent any
+                    agent {label "create_source_package"}
                     steps {
                         checkout scm
                         script {
