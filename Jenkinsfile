@@ -138,10 +138,10 @@ pipeline {
                                     cp -R ../packaging/debian/mod-auth-openidc/debian debian
                                 """
                                 env.OIDC_TARBALL = sh(
-                                    script: "basename ${env.MOD_AUTH_OIDC_SOURCE_STASH}/*.tar.gz",
+                                    script: "basename *.tar.gz",
                                     returnStdout: true).trim()
                                 env.OIDC_VERSION = sh(
-                                    script: "./configure --version | awk '{print \$1; exit}'",
+                                    script: "../configure --version | awk '{print \$1; exit}'",
                                     returnStdout: true).trim()
                             }
                             stash(
