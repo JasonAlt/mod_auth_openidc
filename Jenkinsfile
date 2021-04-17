@@ -126,7 +126,8 @@ pipeline {
                             dirs (path: env.MOD_AUTH_OIDC_SOURCE_STASH, clean: true) {
                                 sh """#! /bin/sh
                                     set -e
-                                    ls
+                                    set -x
+                                    ls -Ra
                                     autoreconf -i
                                     PKG_CONFIG=true ./configure --with-apxs2=/bin/true
                                     rm *.tar.gz
