@@ -4,7 +4,7 @@
 
 def CJOSE_PACKAGE_VERSION="0.5.1"
 def CJOSE_SOURCE_TARBALL_NAME = "${CJOSE_PACKAGE_VERSION}.tar.gz"
-def CJOSE_SOURCE_TARBALL_URL = "https://github.com/cisco/cjose/archive/${SOURCE_TARBALL_NAME}"
+def CJOSE_SOURCE_TARBALL_URL = "https://github.com/cisco/cjose/archive/${CJOSE_SOURCE_TARBALL_NAME}"
 
 // not really an epic, but used to test the build sys
 env.EPIC = "2729"
