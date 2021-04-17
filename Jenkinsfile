@@ -116,7 +116,6 @@ pipeline {
                 }
             }
             steps {
-                checkout scm
                 script {
                     automakePipeline(
                         source_dir: ".",
