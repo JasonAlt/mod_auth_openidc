@@ -133,6 +133,7 @@ pipeline {
                                     PKG_CONFIG=true ./configure --with-apxs2=/bin/true
                                     make distfile
                                     )
+                                    cp ../*.tar.gz .
                                     cp ../packaging/fedora/mod_auth_openidc.spec .
                                     cp -R ../packaging/debian/mod-auth-openidc/debian debian
                                 """
@@ -145,7 +146,7 @@ pipeline {
                             }
                             stash(
                                 name: env.MOD_AUTH_OIDC_SOURCE_STASH,
-                                includes: "${env.MOD_AUTH_OIDC_SOURCE_STASH}/*.tar.gz,${env.MOD_AUTH_OIDC_SOURCE_STASH}/*.spec,${env.MOD_AUTH_OIDC_SOURCE_STASH}/debian/**/*")
+                                includes: "${env.MOD_AUTH_OIDC_SOURCE_STASH}/**/*")
                         }
                     }
                 }
