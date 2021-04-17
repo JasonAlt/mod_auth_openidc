@@ -54,6 +54,7 @@ pipeline {
                                 """
                             }
                             def mock_build_targets, _deb = enumerateBuildTargets()
+                            echo "mock_build_targets=${mock_build_targets}"
                             env. exclude_mock = mock_build_targets.findAll {
                                 it.startsWith("fedora-")
                             }
