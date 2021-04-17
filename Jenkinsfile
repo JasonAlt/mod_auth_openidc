@@ -53,6 +53,10 @@ pipeline {
                                     cp -R ../packaging/debian/cjose/debian debian
                                 """
                             }
+                            def mock_build_targets, _deb = enumerateBuildTargets()
+                            env. exclude_mock = mock_build_targets.findAll {
+                                it.startsWith("fedora-")
+                            }
                             stash(name: env.CJOSE_SOURCE_STASH, includes: "${env.CJOSE_SOURCE_STASH}/**/*")
                         }
                     }
@@ -61,16 +65,12 @@ pipeline {
                     steps {
                         script {
                             // we only need to build this for el-7 and el-8
-                            def mock_build_targets, _deb = enumerateBuildTargets()
-                            def exclude_mock = mock_build_targets.findAll {
-                                it.startsWith("fedora-")
-                            }
                             env.CJOSE_RPM_ARTIFACTS_STASH = buildMock(
                                 env.CJOSE_SOURCE_STASH,
                                 CJOSE_SOURCE_TARBALL_NAME,
                                 false,
                                 getClubhouseEpic(),
-                                exclude_mock)
+                                env.exclude_mock)
                         }
                     }
                 }
