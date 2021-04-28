@@ -1,11 +1,15 @@
 #! groovy
-
 @Library('gcs-build-scripts@debian-cowbuilder-init') _
 
 def CJOSE_PACKAGE_VERSION="0.5.1"
 def CJOSE_SOURCE_TARBALL_NAME = "${CJOSE_PACKAGE_VERSION}.tar.gz"
 def CJOSE_SOURCE_TARBALL_URL = "https://github.com/cisco/cjose/archive/${CJOSE_SOURCE_TARBALL_NAME}"
 def CJOSE_EXCLUDE = []
+
+def JQ_PACKAGE_VERSION="1.5"
+def JQ_SOURCE_TARBALL_NAME = "jq-${JQ_PACKAGE_VERSION}.tar.gz"
+def JQ_SRPM_NAME = "jq-${JQ_PACKAGE_VERSION}-12.el8.src.rpm"
+def JQ_SRPM_URL = "http://vault.centos.org/8.3.2011/AppStream/Source/SPackages/${JQ_SRPM_NAME}"
 
 // not really an epic, but used to test the build sys
 env.EPIC = "2729"
@@ -95,6 +99,73 @@ pipeline {
                                 stashname,
                                 "cjose",
                                 env.CJOSE_PACKAGE_VERSION,
+                                false)
+                        }
+                    }
+                }
+            }
+        }
+        stage ("jq") {
+            when {
+                anyOf {
+                    equals expected: true, actual: params.JQ;
+                    changeset "Jenkinsfile"
+                }
+            }
+            stages {
+                stage ("Prepare jq Source") {
+                    agent {label "create_source_package"}
+                    steps {
+                        checkout scm
+                        script {
+                            env.JQ_SOURCE_STASH = "${UUID.randomUUID()}"
+
+                            dirs (path: env.JQ_SOURCE_STASH, clean: true) {
+                                sh """#! /bin/sh
+                                    set -e
+                                    curl -LOs "${JQ_SRPM_URL}"
+                                    rpm2cpio "$JQ_SRPM_NAME}" | cpio -id
+                                """
+                            }
+                            def (mbt, dbt) = enumerateBuildTargets()
+                            env.JQ_EXCLUDE = mbt.findAll {
+                                ! it.startsWith("el-8")
+                            }
+                            stash(name: env.JQ_SOURCE_STASH, includes: "${env.JQ_SOURCE_STASH}/**/*")
+                        }
+                    }
+                }
+                stage ("Build jq") {
+                    steps {
+                        script {
+                            echo "env.JQ_EXCLUDE = ${env.JQ_EXCLUDE}"
+                            // we only need to build this for el-8
+                            env.JQ_RPM_ARTIFACTS_STASH = buildMock(
+                                env.JQ_SOURCE_STASH,
+                                JQ_SOURCE_TARBALL_NAME,
+                                false,
+                                getClubhouseEpic(),
+                                env.JQ_EXCLUDE)
+                        }
+                    }
+                }
+                stage ("Publish jq") {
+                    agent { label "master" }
+                    steps {
+                        script {
+                            def stashname = "${UUID.randomUUID()}"
+
+                            dir("artifacts") {
+                                if (env.JQ_RPM_ARTIFACTS_STASH) {
+                                    unstash(name: env.JQ_RPM_ARTIFACTS_STASH)
+                                }
+                                stash(name: stashname, includes: "**/*")
+                                deleteDir()
+                            }
+                            publishResults(
+                                stashname,
+                                "jq",
+                                JQ_PACKAGE_VERSION,
                                 false)
                         }
                     }

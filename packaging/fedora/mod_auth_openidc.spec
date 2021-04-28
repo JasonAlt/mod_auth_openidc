@@ -15,9 +15,7 @@ BuildRequires:	openssl-devel
 BuildRequires:	curl-devel
 BuildRequires:	jansson-devel
 BuildRequires:	cjose-devel
-%if %{?rhel}%{!?rhel:0} != 8
 BuildRequires:	jq-devel
-%endif
 BuildRequires:	hiredis-devel
 BuildRequires:	pcre-devel
 BuildRequires:	autoconf
