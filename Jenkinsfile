@@ -10,6 +10,7 @@ def JQ_PACKAGE_VERSION="1.5"
 def JQ_SOURCE_TARBALL_NAME = "jq-${JQ_PACKAGE_VERSION}.tar.gz"
 def JQ_SRPM_NAME = "jq-${JQ_PACKAGE_VERSION}-12.el8.src.rpm"
 def JQ_SRPM_URL = "http://vault.centos.org/8.3.2011/AppStream/Source/SPackages/${JQ_SRPM_NAME}"
+def JQ_EXCLUDE = []
 
 // not really an epic, but used to test the build sys
 env.EPIC = "2729"
@@ -133,7 +134,7 @@ pipeline {
                                 """
                             }
                             def (mbt, dbt) = enumerateBuildTargets()
-                            env.JQ_EXCLUDE = mbt.findAll {
+                            JQ_EXCLUDE = mbt.findAll {
                                 ! it.startsWith("el-8")
                             }
                             stash(name: env.JQ_SOURCE_STASH, includes: "${env.JQ_SOURCE_STASH}/**/*")
@@ -143,14 +144,14 @@ pipeline {
                 stage ("Build jq") {
                     steps {
                         script {
-                            echo "env.JQ_EXCLUDE = ${env.JQ_EXCLUDE}"
+                            echo "JQ_EXCLUDE = ${JQ_EXCLUDE}"
                             // we only need to build this for el-8
                             env.JQ_RPM_ARTIFACTS_STASH = buildMock(
                                 env.JQ_SOURCE_STASH,
                                 JQ_SOURCE_TARBALL_NAME,
                                 false,
                                 getClubhouseEpic(),
-                                env.JQ_EXCLUDE)
+                                JQ_EXCLUDE)
                         }
                     }
                 }
