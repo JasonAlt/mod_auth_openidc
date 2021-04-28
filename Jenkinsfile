@@ -23,6 +23,11 @@ pipeline {
     }
     parameters {
         booleanParam(
+            name: 'JQ',
+            defaultValue: false,
+            description: "Set to true to rebuild jq, otherwise only when changed"
+        )
+        booleanParam(
             name: 'CJOSE',
             defaultValue: false,
             description: "Set to true to rebuild cjose, otherwise only when changed"
