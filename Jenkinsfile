@@ -129,7 +129,7 @@ pipeline {
                                 sh """#! /bin/sh
                                     set -e
                                     curl -LOs "${JQ_SRPM_URL}"
-                                    rpm2cpio "$JQ_SRPM_NAME}" | cpio -id
+                                    rpm2cpio "${JQ_SRPM_NAME}" | cpio -id
                                 """
                             }
                             def (mbt, dbt) = enumerateBuildTargets()
