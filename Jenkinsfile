@@ -13,7 +13,7 @@ def JQ_SRPM_URL = "http://vault.centos.org/8.3.2011/AppStream/Source/SPackages/$
 def JQ_EXCLUDE = []
 
 env.DEFAULT_BRANCH = "globus"
-
+env.STABLE_TAG = '${PACKAGE_NAME}-${PACKAGE_VERSION}'
 
 pipeline {
     agent none
