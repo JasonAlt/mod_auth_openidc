@@ -215,7 +215,7 @@ pipeline {
                                     script: "basename *.tar.gz",
                                     returnStdout: true).trim()
                                 env.OIDC_VERSION = sh(
-                                    script: "../configure --version | awk '{print \$1; exit}'",
+                                    script: "../configure --version | awk '{print \$3; exit}'",
                                     returnStdout: true).trim()
                             }
                             stash(
