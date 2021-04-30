@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
-Version:	2.3.2j
-Release:	2%{?dist}
+Version:	2.3.2k~rc1
+Release:	1%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -60,6 +60,8 @@ echo 'LoadModule auth_openidc_module modules/mod_auth_openidc.so' > \
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
 
 %changelog
+* Wed May 05 2021 Globus Toolkit <support@globus.org> 2.3.2k~rc1
+- Rebuild for new ubuntu and fedora targets
 * Wed Jun 09 2020 Globus Toolkit <support@globus.org> 2.3.2j
 - Pass list of objects through as claims
 

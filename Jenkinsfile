@@ -1,5 +1,5 @@
 #! groovy
-@Library('gcs-build-scripts@debian-cowbuilder-init') _
+@Library('gcs-build-scripts') _
 
 def CJOSE_PACKAGE_VERSION="0.5.1"
 def CJOSE_SOURCE_TARBALL_NAME = "${CJOSE_PACKAGE_VERSION}.tar.gz"
@@ -12,8 +12,7 @@ def JQ_SRPM_NAME = "jq-${JQ_PACKAGE_VERSION}-12.el8.src.rpm"
 def JQ_SRPM_URL = "http://vault.centos.org/8.3.2011/AppStream/Source/SPackages/${JQ_SRPM_NAME}"
 def JQ_EXCLUDE = []
 
-// not really an epic, but used to test the build sys
-env.EPIC = "2729"
+env.DEFAULT_BRANCH = "globus"
 
 
 pipeline {

@@ -1,3 +1,9 @@
+mod-auth-openidc (1:2.3.2k~rc1-1+gcs5.@distro@) @distro@; urgency=low
+
+  * Rebuild for new ubuntu and fedora targets
+
+ -- Globus Toolkit <support@globus.org>  Wed, 09 Jun 2020 19:15:36 -0400
+
 mod-auth-openidc (1:2.3.2j-1+gcs5.@distro@) @distro@; urgency=low
 
   * Pass list of objects through as claims
