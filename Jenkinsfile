@@ -103,7 +103,7 @@ pipeline {
                             publishResults(
                                 stashname,
                                 "cjose",
-                                env.CJOSE_PACKAGE_VERSION,
+                                CJOSE_PACKAGE_VERSION,
                                 false)
                         }
                     }
