@@ -1,23 +1,22 @@
-[![Build Status](https://travis-ci.org/pingidentity/mod_auth_openidc.svg?branch=master)](https://travis-ci.org/pingidentity/mod_auth_openidc)
+[![Build Status](https://travis-ci.org/zmartzone/mod_auth_openidc.svg?branch=master)](https://travis-ci.org/zmartzone/mod_auth_openidc)
+[<img width="184" height="96" align="right" src="http://openid.net/wordpress-content/uploads/2016/04/oid-l-certification-mark-l-rgb-150dpi-90mm@2x.png" alt="OpenID Certification">](https://openid.net/certification)
+[![Code Quality: Cpp](https://img.shields.io/lgtm/grade/cpp/g/zmartzone/mod_auth_openidc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/zmartzone/mod_auth_openidc/context:cpp)
+[![Total Alerts](https://img.shields.io/lgtm/alerts/g/zmartzone/mod_auth_openidc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/zmartzone/mod_auth_openidc/alerts)
 
 mod_auth_openidc
 ================
 
 *mod_auth_openidc* is an authentication/authorization module for the Apache 2.x
 HTTP server that functions as an **OpenID Connect Relying Party**, authenticating users against an
-OpenID Connect Provider. It can also function as an **OAuth 2.0 Resource Server**, validating 
-OAuth 2.0 access tokens presented by OAuth 2.0 Clients.
+OpenID Connect Provider.
 
 Overview
 --------
 
 This module enables an Apache 2.x web server to operate as an [OpenID Connect](http://openid.net/specs/openid-connect-core-1_0.html)
 *Relying Party* (RP) to an OpenID Connect *Provider* (OP). It authenticates users against an OpenID Connect Provider,
-receives user identity information from the OP in a so called ID Token and passes the identity information
+receives user identity information from the OP in a so called ID Token and passes on the identity information
 (a.k.a. claims) in the ID Token to applications hosted and protected by the Apache web server.
-
-It can also be configured as an OAuth 2.0 *Resource Server* (RS), consuming bearer access tokens and validating
-them against an OAuth 2.0 Authorization Server, authorizing the Clients based on the validation results.
 
 The protected content and/or applications can be served by the Apache server itself or it can be served from elsewhere
 when Apache is configured as a Reverse Proxy in front of the origin server(s).
@@ -30,23 +29,34 @@ It allows for authorization rules (based on standard Apache `Require` primitives
 of claims provided in the `id_token`/ `userinfo` claims.
 
 *mod_auth_openidc* supports the following specifications:
-- [OpenID Connect](http://openid.net/specs/openid-connect-core-1_0.html) Basic, Implicit, Hybrid and Refresh flows.
-- [OpenID Connect Dynamic Client Registration](http://openid.net/specs/openid-connect-registration-1_0.html)
-- [OpenID Provider Discovery](http://openid.net/specs/openid-connect-discovery-1_0.html)
-- [OAuth 2.0 Form Post Response Mode](http://openid.net/specs/oauth-v2-form-post-response-mode-1_0.html)
-- [Proof Key for Code Exchange by OAuth Public Clients](https://tools.ietf.org/html/rfc7636)
-- [OpenID Connect Session Management](http://openid.net/specs/openid-connect-session-1_0.html). See the [Wiki](https://github.com/pingidentity/mod_auth_openidc/wiki/Session-Management) for information
-on how to configure it.
-
-Alternatively the module can operate as an OAuth 2.0 Resource Server to an OAuth 2.0 Authorization Server,
-introspecting/validating bearer Access Tokens conforming to [OAuth 2.0 Token Introspection](https://tools.ietf.org/html/rfc7662) (or similar),
-or verifiying them locally if they are JWTs.
-The `REMOTE_USER` variable setting, passing claims in HTTP headers and authorization based on `Require` primitives
-works in the same way as described for OpenID Connect above. See the [Wiki](https://github.com/pingidentity/mod_auth_openidc/wiki/OAuth-2.0-Resource-Server) for information
-on how to configure it.
+- [OpenID Connect Core 1.0](http://openid.net/specs/openid-connect-core-1_0.html) *(Basic, Implicit, Hybrid and Refresh flows)*
+- [OpenID Connect Discovery 1.0](http://openid.net/specs/openid-connect-discovery-1_0.html)
+- [OpenID Connect Dynamic Client Registration 1.0](http://openid.net/specs/openid-connect-registration-1_0.html)
+- [OAuth 2.0 Multiple Response Type Encoding Practices 1.0](http://openid.net/specs/oauth-v2-multiple-response-types-1_0.html)
+- [OAuth 2.0 Form Post Response Mode 1.0](http://openid.net/specs/oauth-v2-form-post-response-mode-1_0.html)
+- [RFC7 7636 - Proof Key for Code Exchange by OAuth Public Clients](https://tools.ietf.org/html/rfc7636)
+- [OpenID Connect Session Management 1.0](http://openid.net/specs/openid-connect-session-1_0.html) *(implementers draft; see the [Wiki](https://github.com/zmartzone/mod_auth_openidc/wiki/OpenID-Connect-Session-Management) for information on how to configure it)*
+- [OpenID Connect Front-Channel Logout 1.0](http://openid.net/specs/openid-connect-frontchannel-1_0.html) *(implementers draft)*
+- [OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html) *(implementers draft)*
 
 For an exhaustive description of all configuration options, see the file `auth_openidc.conf`
 in this directory. This file can also serve as an include file for `httpd.conf`.
+
+Support
+-------
+
+#### Community Support
+For documentation, see the Wiki pages (including Frequently Asked Questions) at:  
+  [https://github.com/zmartzone/mod_auth_openidc/wiki](https://github.com/zmartzone/mod_auth_openidc/wiki)  
+For generic questions there is a Github Discussions forum at:  
+  [https://github.com/zmartzone/mod_auth_openidc/discussions](https://github.com/zmartzone/mod_auth_openidc/discussions)
+There is a (now deprecated) Google Group/mailing list archive at:  
+  [https://groups.google.com/forum/#!forum/mod_auth_openidc](https://groups.google.com/forum/#!forum/mod_auth_openidc)  
+Any questions/issues should go to the Discussions forum.
+
+#### Commercial Services
+For commercial Support contracts, Professional Services, Training and use-case specific support you can contact:  
+  [sales@zmartzone.eu](mailto:sales@zmartzone.eu)  
 
 How to Use It  
 -------------
@@ -63,6 +73,7 @@ OIDCProviderMetadataURL https://accounts.google.com/.well-known/openid-configura
 OIDCClientID <your-client-id-administered-through-the-google-api-console>
 OIDCClientSecret <your-client-secret-administered-through-the-google-api-console>
 
+# OIDCRedirectURI is a vanity URL that must point to a path protected by this module but must NOT point to any content
 OIDCRedirectURI https://www.example.com/example/redirect_uri
 OIDCCryptoPassphrase <password>
 
@@ -83,7 +94,7 @@ Require claim hd:<your-domain>
 ```
 
 The above is an authorization example of an exact match of a provided claim against a string value.
-For more authorization options see the [Wiki page on Authorization](https://github.com/pingidentity/mod_auth_openidc/wiki/Authorization).
+For more authorization options see the [Wiki page on Authorization](https://github.com/zmartzone/mod_auth_openidc/wiki/Authorization).
 
 ### Quickstart with a generic OpenID Connect Provider
 
@@ -102,6 +113,7 @@ OIDCProviderMetadataURL <issuer>/.well-known/openid-configuration
 OIDCClientID <client_id>
 OIDCClientSecret <client_secret>
 
+# OIDCRedirectURI is a vanity URL that must point to a path protected by this module but must NOT point to any content
 OIDCRedirectURI https://<hostname>/secure/redirect_uri
 OIDCCryptoPassphrase <password>
 
@@ -110,69 +122,23 @@ OIDCCryptoPassphrase <password>
    Require valid-user
 </Location>
 ```
-For details on configuring multiple providers see the [Wiki](https://github.com/pingidentity/mod_auth_openidc/wiki/Multiple-Providers).
+For details on configuring multiple providers see the [Wiki](https://github.com/zmartzone/mod_auth_openidc/wiki/Multiple-Providers).
 
-### PingFederate OAuth 2.0 Resource Server
+### Quickstart for Other Providers
 
-Example config for using PingFederate as your OAuth 2.0 Authorization server,
-based on the OAuth 2.0 PlayGround configuration and doing claims-based authorization, using
-RFC 7662 compliant Token Introspection.
-
-```apache
-# remote validation
-OIDCOAuthIntrospectionEndpoint https://localhost:9031/as/introspect.oauth2
-OIDCOAuthIntrospectionEndpointAuth client_secret_basic
-OIDCOAuthRemoteUserClaim Username
-	
-OIDCOAuthSSLValidateServer Off
-OIDCOAuthClientID rs_client
-OIDCOAuthClientSecret 2Federate
-
-<Location /api>
-   AuthType oauth20
-   Require claim client_id:ro_client
-   #Require claim scope~\bprofile\b
-</Location>
-```
-For details and additional options on the OAuth 2.0 Resource Server setup see the [Wiki](https://github.com/pingidentity/mod_auth_openidc/wiki/OAuth-2.0-Resource-Server).
-
-### Quickstart with a generic OAuth 2.0 Resource Server
-
-Using "local" validation of JWT bearer tokens:
-
-1. install and load `mod_auth_openidc.so` in your Apache server
-1. configure your protected APIs/locations with `AuthType oauth20` and `Require claim` directives to restrict access to specific clients/scopes/claims/resource-owners
-1. configure local or remote bearer token validation following the [Wiki](https://github.com/pingidentity/mod_auth_openidc/wiki/OAuth-2.0-Resource-Server)
-
-```apache
-# local validation
-OIDCOAuthVerifySharedKeys plain##<shared-secret-to-validate-symmetric-jwt-signatures>
-
-<Location /api>
-   AuthType oauth20
-   Require claim sub:<resource_owner_identifier>
-</Location>
-```
-
-Support
--------
-
-See the Wiki pages with Frequently Asked Questions at:  
-  https://github.com/pingidentity/mod_auth_openidc/wiki   
-There is a Google Group/mailing list at:  
-  [mod_auth_openidc@googlegroups.com](mailto:mod_auth_openidc@googlegroups.com)  
-The corresponding forum/archive is at:  
-  https://groups.google.com/forum/#!forum/mod_auth_openidc  
-For commercial support and consultancy you can contact:  
-  [info@zmartzone.eu](mailto:info@zmartzone.eu)  
-
-Any questions/issues should go to the mailing list or the
-primary author [hans.zandbelt@zmartzone.eu](mailto:hans.zandbelt@zmartzone.eu).  
-The Github issues tracker should be used only for bugs reports and feature requests.
+See the [Wiki](https://github.com/zmartzone/mod_auth_openidc/wiki) for configuration docs for other OpenID Connect Providers:
+- [GLUU Server](https://github.com/zmartzone/mod_auth_openidc/wiki/Gluu-Server)
+- [Keycloak](https://github.com/zmartzone/mod_auth_openidc/wiki/Keycloak)
+- [Azure AD](https://github.com/zmartzone/mod_auth_openidc/wiki/Azure-Active-Directory-Authentication)
+- [Sign in with Apple](https://github.com/zmartzone/mod_auth_openidc/wiki/Sign-in-with-Apple)
+- [Curity Identity Server](https://github.com/zmartzone/mod_auth_openidc/wiki/Curity-Identity-Server)
+- [LemonLDAP::NG](https://github.com/zmartzone/mod_auth_openidc/wiki/LemonLDAP::NG)
+- [GitLab](https://github.com/zmartzone/mod_auth_openidc/wiki/GitLab-OAuth2)
+- [Globus](https://github.com/zmartzone/mod_auth_openidc/wiki/Globus)
+and [more](https://github.com/zmartzone/mod_auth_openidc/wiki/Useful-Links)
 
 Disclaimer
 ----------
 
-*This software is open sourced by Ping Identity but not supported commercially
-by Ping Identity, see also the DISCLAIMER file in this directory. For commercial support
-you can contact [ZmartZone IAM](https://www.zmartzone.eu) as described above.*
+*This software is open sourced by ZmartZone IAM. For commercial services
+you can contact [ZmartZone IAM](https://www.zmartzone.eu) as described above in the [Support](#support) section.*
