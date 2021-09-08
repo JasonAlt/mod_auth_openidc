@@ -205,6 +205,7 @@ pipeline {
                                     (cd ..;
                                     autoreconf -i
                                     ac_cv_header_apr_memcache_h=yes PKG_CONFIG=true HAVE_MEMCACHE=1 HAVE_LIBHIREDIS=1 ./configure --with-apxs2=/bin/true
+                                    rm -f mod_auth_openidc-*.tar.gz
                                     make distfile
                                     )
                                     cp ../*.tar.gz .
