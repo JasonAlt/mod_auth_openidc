@@ -7,3 +7,8 @@
 /.libs/
 /test-cmd
 /*.json
+/*.jwt
+/*.jwk
+/jmx/
+/mod_auth_openidc.results
+/test-cmd-licensed
