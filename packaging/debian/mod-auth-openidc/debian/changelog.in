@@ -1,4 +1,4 @@
-mod-auth-openidc (1:2.4.9.4g-1+gcs5.@distro@) @distro@; urgency=low
+mod-auth-openidc (1:2.4.9.4g~rc1-1+gcs5.@distro@) @distro@; urgency=low
 
   * Merged zmartzone 2.4.9.4
 
