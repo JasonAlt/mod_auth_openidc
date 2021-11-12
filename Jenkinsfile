@@ -39,6 +39,15 @@ pipeline {
         )
     }
     stages {
+        stage ("epoch") {
+            agent any
+            steps {
+                script {
+                    // Epic for new OS rebuild
+                    env.EPIC = "10206"
+                }
+            }
+        }
         stage ("cjose") {
             when {
                 anyOf {
