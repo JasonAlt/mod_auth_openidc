@@ -1,4 +1,4 @@
-mod-auth-openidc (1:2.4.9.4g-2+gcs5.@distro@) @distro@; urgency=low
+mod-auth-openidc (1:2.4.9.4g~rc1-2+gcs5.@distro@) @distro@; urgency=low
 
   * Rebuild for new OS releases
 
