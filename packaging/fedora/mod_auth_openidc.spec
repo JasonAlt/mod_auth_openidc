@@ -10,17 +10,39 @@ URL:		https://github.com/pingidentity/mod_auth_openidc
 Source0:	https://github.com/pingidentity/mod_auth_openidc/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires:	gcc
+%if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	httpd-devel
+%else
+BuildRequires:	apache2-devel
+%endif
+%if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	openssl-devel
+%else
+BuildRequires:	libopenssl-1_1-devel
+%endif
 BuildRequires:	curl-devel
+%if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	jansson-devel
+%else
+BuildRequires:	libjansson-devel
+%endif
+%if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	cjose-devel
+%else
+BuildRequires:  libcjose-devel
+%endif
+%if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	jq-devel
+%else
+BuildRequires:	libjq-devel
+%endif
 BuildRequires:	hiredis-devel
 BuildRequires:	pcre-devel
 BuildRequires:	autoconf
 BuildRequires:	automake
+%if %{?suse_version}%{!?suse_version:0} == 0
 Requires:	httpd-mmn
+%endif
 Provides:       mod_auth_openidc_globus_extension
 
 %description
@@ -33,11 +55,16 @@ an OpenID Connect Relying Party and/or OAuth 2.0 Resource Server.
 %build
 # workaround rpm-buildroot-usage
 export APXS2_OPTS='-S LIBEXECDIR=${MODULES_DIR}'
+%if %{?suse_version}%{!?suse_version:0} == 0
 %if %{?_httpd_moddir:1}%{!?__httpd_moddir:0} == 0
 %global _httpd_moddir %{_sysconfdir}/httpd/modules
 %endif
 %if %{?_httpd_modconfdir:1}%{!?_httpd_modconfdir:0} == 0
 %global _httpd_modconfdir %{_sysconfdir}/httpd/conf.d
+%endif
+%else
+%global _httpd_moddir %{_libdir}/apache2
+%global _httpd_modconfdir %{_sysconfdir}/apache2/conf.d
 %endif
 export MODULES_DIR=%{_httpd_moddir}
 autoreconf
@@ -50,8 +77,13 @@ mkdir -p $RPM_BUILD_ROOT%{_httpd_moddir}
 make install MODULES_DIR=$RPM_BUILD_ROOT%{_httpd_moddir}
 
 install -m 755 -d $RPM_BUILD_ROOT%{_httpd_modconfdir}
+%if %{?suse_version}%{!?suse_version:0} == 0
 echo 'LoadModule auth_openidc_module modules/mod_auth_openidc.so' > \
 	$RPM_BUILD_ROOT%{_httpd_modconfdir}/10-auth_openidc.conf
+%else
+echo 'LoadModule auth_openidc_module %{_libdir}/apache2/mod_auth_openidc.so' > \
+	$RPM_BUILD_ROOT%{_httpd_modconfdir}/10-auth_openidc.conf
+%endif
 
 %files
 %license LICENSE.txt
