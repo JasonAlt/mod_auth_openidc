@@ -1,6 +1,6 @@
 Name:           cjose
 Version:        0.6.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        C library implementing the Javascript Object Signing and Encryption (JOSE)
 Group:          System Environment/Libraries
 License:        MIT
@@ -10,8 +10,13 @@ Vendor:         %{VENDOR}
 Epoch:          1
 
 BuildRoot:      %{_tmppath}/cjose-%{version}-%{release}-build
-Requires:       openssl, jansson
-BuildRequires:  openssl-devel, jansson-devel, check-devel, doxygen
+BuildRequires:  openssl-devel
+%if %{?suse_version}%{!?suse_version:0} == 0
+BuildRequires:  jansson-devel
+%else
+BuildRequires:  libjansson-devel
+%endif
+BuildRequires:  check-devel
 
 %description
 Implementation of JOSE for C/C++
@@ -41,7 +46,6 @@ This package contains the documentation to develop applications using CJOSE.
 
 %configure
 make test
-make doxygen
 
 %install
 %make_install
