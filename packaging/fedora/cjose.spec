@@ -29,16 +29,6 @@ Provides:       cjose-devel
 %description devel
 This package contains the necessary header files to develop applications using CJOSE.
 
-%package doc
-Summary:        Documentation files for CJOSE
-Group:          System Environment/Libraries
-%if %{?fedora}%{!?fedora:0} >= 10 || %{?rhel}%{!?rhel:0} >= 6
-BuildArch:      noarch
-%endif
-
-%description doc
-This package contains the documentation to develop applications using CJOSE.
-
 %prep
 %setup -q
 
@@ -61,6 +51,3 @@ rm -rf $PRM_BUILD_ROOT
 %{_libdir}/libcjose.so
 %{_includedir}/cjose/*.h
 %{_libdir}/pkgconfig/cjose.pc
-
-%files doc
-%{_docdir}/cjose/html/*
