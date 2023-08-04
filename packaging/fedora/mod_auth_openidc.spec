@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
 Version:	2.4.9.4g
-Release:	2%{?dist}
+Release:	3%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -92,6 +92,8 @@ echo 'LoadModule auth_openidc_module %{_libdir}/apache2/mod_auth_openidc.so' > \
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
 
 %changelog
+* Fri Aug 4 2023 Globus Toolkit <support@globus.org> 2.4.9.4g-3
+- Update packaging to work with SUSE
 * Fri Nov 12 2021 Globus Toolkit <support@globus.org> 2.4.9.4g-2
 - Rebuild for new OS releases
 * Wed Sep 08 2021 Globus Toolkit <support@globus.org> 2.4.9.4g
