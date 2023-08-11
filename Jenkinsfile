@@ -263,7 +263,6 @@ pipeline {
                                 deleteDir()
                             }
                             // Explicitly set release version in the tag
-                            env.STABLE_TAG = '${PACKAGE_NAME}-${PACKAGE_VERSION}-2'
                             publishResults(
                                 stashname,
                                 "mod_auth_openidc",

@@ -1,4 +1,4 @@
-mod-auth-openidc (1:2.4.9.4g-3+gcs5.@distro@) @distro@; urgency=low
+mod-auth-openidc (1:2.4.9.4g-4+gcs5.@distro@) @distro@; urgency=low
 
   * Update packaging to work with SUSE
 
