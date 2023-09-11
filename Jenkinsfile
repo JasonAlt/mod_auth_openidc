@@ -1,9 +1,9 @@
 #! groovy
 @Library('gcs-build-scripts') _
 
-def CJOSE_PACKAGE_VERSION="0.6.2"
+def CJOSE_PACKAGE_VERSION="0.6.2.2"
 def CJOSE_SOURCE_TARBALL_NAME = "cjose-${CJOSE_PACKAGE_VERSION}.tar.gz"
-def CJOSE_SOURCE_TARBALL_URL = "https://github.com/zmartzone/cjose/releases/download/v${CJOSE_PACKAGE_VERSION}/${CJOSE_SOURCE_TARBALL_NAME}"
+def CJOSE_SOURCE_TARBALL_URL = "https://github.com/OpenIDC/cjose/releases/download/v${CJOSE_PACKAGE_VERSION}/${CJOSE_SOURCE_TARBALL_NAME}"
 def CJOSE_EXCLUDE = []
 
 def JQ_PACKAGE_VERSION="1.5"

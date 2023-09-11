@@ -1,11 +1,11 @@
 Name:           cjose
-Version:        0.6.2
-Release:        2%{?dist}
+Version:        0.6.2.2
+Release:        1%{?dist}
 Summary:        C library implementing the Javascript Object Signing and Encryption (JOSE)
 Group:          System Environment/Libraries
 License:        MIT
-URL:            https://github.com/zmartzone/cjose
-Source0:        https://github.com/zmartzone/cjose/releases/download/v%{version}/cjose-%{version}.tar.gz
+URL:            https://github.com/OpenIDC/cjose
+Source0:        https://github.com/OpenIDC/cjose/releases/download/v%{version}/cjose-%{version}.tar.gz
 Vendor:         %{VENDOR}
 Epoch:          1
 
