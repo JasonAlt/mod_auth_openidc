@@ -232,9 +232,8 @@ pipeline {
                                 env.MOD_AUTH_OIDC_DEB_ARTIFACTS_STASH = buildDebian(
                                 env.MOD_AUTH_OIDC_SOURCE_STASH,
                                 env.OIDC_TARBALL,
-                                true,
-                                getClubhouseEpic(),
-                                null)
+                                require_gcs5_repo: true,
+                                epic: getClubhouseEpic())
                             }, "rpm": {
                                 env.MOD_AUTH_OIDC_RPM_ARTIFACTS_STASH = buildMock(
                                     env.MOD_AUTH_OIDC_SOURCE_STASH,
