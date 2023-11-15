@@ -1,3 +1,5 @@
+/.project
+/.cproject
 /aclocal.m4
 /config.log
 /config.status
@@ -13,7 +15,7 @@
 /install-sh
 /libtool
 /ltmain.sh
-/mod_auth_openidc.la
+/*.la
 /config.sub
 /depcomp
 /missing
@@ -23,6 +25,10 @@
 /configure~
 /Dockerfile-*
 /*.rpm
-
 /config.guess~
 /config.sub~
+/test-driver
+/test-suite.log
+/ar-lib
+/Makefile.in
+/autom4te.cache/

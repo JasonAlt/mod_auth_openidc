@@ -18,7 +18,7 @@
  */
 
 /***************************************************************************
- * Copyright (C) 2017-2021 ZmartZone Holding BV
+ * Copyright (C) 2017-2023 ZmartZone Holding BV
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -40,18 +40,10 @@
  *
  * caching using a file storage backend
  *
- * @Author: Hans Zandbelt - hans.zandbelt@zmartzone.eu
+ * @Author: Hans Zandbelt - hans.zandbelt@openidc.com
  */
 
-#include <apr_hash.h>
-#include <apr_time.h>
-#include <apr_strings.h>
-#include <apr_pools.h>
-
-#include <httpd.h>
-#include <http_log.h>
-
-#include "../mod_auth_openidc.h"
+#include "mod_auth_openidc.h"
 
 extern module AP_MODULE_DECLARE_DATA auth_openidc_module;
 
@@ -167,7 +159,7 @@ static apr_status_t oidc_cache_file_write(request_rec *r, const char *path,
  * get a value for the specified key from the cache
  */
 static apr_byte_t oidc_cache_file_get(request_rec *r, const char *section,
-		const char *key, const char **value) {
+		const char *key, char **value) {
 	apr_file_t *fd = NULL;
 	apr_status_t rc = APR_SUCCESS;
 	char s_err[128];
@@ -220,7 +212,7 @@ static apr_byte_t oidc_cache_file_get(request_rec *r, const char *section,
 	*value = apr_palloc(r->pool, info.len);
 
 	/* (blocking) read the requested data in to the buffer */
-	rc = oidc_cache_file_read(r, path, fd, (void *) *value, info.len);
+	rc = oidc_cache_file_read(r, path, fd, (void *) (*value), info.len);
 
 	/* barf on failure */
 	if (rc != APR_SUCCESS) {
@@ -321,7 +313,7 @@ static apr_status_t oidc_cache_file_clean(request_rec *r) {
 			/* skip non-cache entries, cq. the ".", ".." and the metadata file */
 			if ((fi.name[0] == OIDC_CHAR_DOT)
 					|| (strstr(fi.name, OIDC_CACHE_FILE_PREFIX) != fi.name)
-					|| ((apr_strnatcmp(fi.name,
+					|| ((_oidc_strcmp(fi.name,
 							oidc_cache_file_name(r, "cache-file",
 									OIDC_CACHE_FILE_LAST_CLEANED)) == 0)))
 				continue;
@@ -337,8 +329,10 @@ static apr_status_t oidc_cache_file_clean(request_rec *r) {
 			}
 
 			/* read the header with cache metadata info */
+			apr_file_lock(fd, APR_FLOCK_EXCLUSIVE);
 			rc = oidc_cache_file_read(r, path, fd, &info,
 					sizeof(oidc_cache_file_info_t));
+			apr_file_unlock(fd);
 			apr_file_close(fd);
 
 			if (rc == APR_SUCCESS) {
@@ -380,63 +374,67 @@ static apr_status_t oidc_cache_file_clean(request_rec *r) {
 /*
  * write a value for the specified key to the cache
  */
-static apr_byte_t oidc_cache_file_set(request_rec *r, const char *section,
-		const char *key, const char *value, apr_time_t expiry) {
+static apr_byte_t oidc_cache_file_set(request_rec *r, const char *section, const char *key,
+		const char *value, apr_time_t expiry) {
 	apr_file_t *fd = NULL;
 	apr_status_t rc = APR_SUCCESS;
 	char s_err[128];
+	char *rnd = NULL;
+
+	oidc_proto_generate_nonce(r, &rnd, 12);
 
 	/* get the fully qualified path to the cache file based on the key name */
-	const char *path = oidc_cache_file_path(r, section, key);
+	const char *target = oidc_cache_file_path(r, section, key);
+	const char *path = apr_psprintf(r->pool, "%s.%s.tmp", target, rnd);
 
 	/* only on writes (not on reads) we clean the cache first (if not done recently) */
 	oidc_cache_file_clean(r);
 
 	/* just remove cache file if value is NULL */
 	if (value == NULL) {
-		if ((rc = apr_file_remove(path, r->pool)) != APR_SUCCESS) {
-			oidc_error(r, "could not delete cache file \"%s\" (%s)", path,
-					apr_strerror(rc, s_err, sizeof(s_err)));
+		if ((rc = apr_file_remove(target, r->pool)) != APR_SUCCESS) {
+			oidc_error(r, "could not delete cache file \"%s\" (%s)", path, apr_strerror(rc, s_err, sizeof(s_err)));
 		}
 		return TRUE;
 	}
 
 	/* try to open the cache file for writing, creating it if it does not exist */
-	if ((rc = apr_file_open(&fd, path,
-			(APR_FOPEN_WRITE | APR_FOPEN_CREATE | APR_FOPEN_TRUNCATE),
-			APR_OS_DEFAULT, r->pool)) != APR_SUCCESS) {
-		oidc_error(r, "cache file \"%s\" could not be opened (%s)", path,
-				apr_strerror(rc, s_err, sizeof(s_err)));
+	if ((rc = apr_file_open(&fd, path, (APR_FOPEN_WRITE | APR_FOPEN_CREATE),
+							APR_OS_DEFAULT, r->pool)) != APR_SUCCESS) {
+		oidc_error(r, "cache file \"%s\" could not be opened (%s)", path, apr_strerror(rc, s_err, sizeof(s_err)));
 		return FALSE;
 	}
 
 	/* lock the file and move the write pointer to the start of it */
 	apr_file_lock(fd, APR_FLOCK_EXCLUSIVE);
 	apr_off_t begin = 0;
+	apr_file_trunc(fd, begin);
 	apr_file_seek(fd, APR_SET, &begin);
 
 	/* construct the metadata for this cache entry in the header info */
 	oidc_cache_file_info_t info;
 	info.expire = expiry;
-	info.len = strlen(value) + 1;
+	info.len = _oidc_strlen(value) + 1;
 
 	/* write the header */
-	if ((rc = oidc_cache_file_write(r, path, fd, &info,
-			sizeof(oidc_cache_file_info_t))) != APR_SUCCESS)
+	if ((rc = oidc_cache_file_write(r, path, fd, &info, sizeof(oidc_cache_file_info_t)))
+			!= APR_SUCCESS)
 		return FALSE;
 
 	/* next write the value */
-	rc = oidc_cache_file_write(r, path, fd, (void *) value, info.len);
+	rc = oidc_cache_file_write(r, path, fd, (void*) value, info.len);
 
 	/* unlock and close the written file */
 	apr_file_unlock(fd);
 	apr_file_close(fd);
 
+	if (rename(path, target) != 0) {
+		oidc_error(r, "cache file: %s could not be renamed to: %s", path, target);
+		return FALSE;
+	}
+
 	/* log our success/failure */
-	oidc_debug(r,
-			"%s entry for key \"%s\" in file of %" APR_SIZE_T_FMT " bytes",
-			(rc == APR_SUCCESS) ? "successfully stored" : "could not store",
-					key, info.len);
+	oidc_debug(r, "%s entry for key \"%s\" in file of %" APR_SIZE_T_FMT " bytes", (rc == APR_SUCCESS) ? "successfully stored" : "could not store", key, info.len);
 
 	return (rc == APR_SUCCESS);
 }

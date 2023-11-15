@@ -18,7 +18,7 @@
  */
 
 /***************************************************************************
- * Copyright (C) 2017-2021 ZmartZone Holding BV
+ * Copyright (C) 2017-2023 ZmartZone Holding BV
  * Copyright (C) 2013-2017 Ping Identity Corporation
  * All rights reserved.
  *
@@ -40,24 +40,16 @@
  *
  * mostly copied from mod_auth_cas
  *
- * @Author: Hans Zandbelt - hans.zandbelt@zmartzone.eu
+ * @Author: Hans Zandbelt - hans.zandbelt@openidc.com
  */
 
-#include <http_core.h>
-#include <http_log.h>
-#include <http_protocol.h>
-
 #include "mod_auth_openidc.h"
-
-#include <pcre.h>
-
-#ifdef USE_LIBJQ
-#include "jq.h"
-#endif
+#include "pcre_subst.h"
 
 static apr_byte_t oidc_authz_match_value(request_rec *r, const char *spec_c,
-		json_t *val, const char *key) {
+		const json_t *val, const char *key) {
 
+	const json_t *elem = NULL;
 	int i = 0;
 
 	oidc_debug(r, "matching: spec_c=%s, key=%s", spec_c, key);
@@ -65,19 +57,19 @@ static apr_byte_t oidc_authz_match_value(request_rec *r, const char *spec_c,
 	/* see if it is a string and it (case-insensitively) matches the Require'd value */
 	if (json_is_string(val)) {
 
-		if (apr_strnatcmp(json_string_value(val), spec_c) == 0)
+		if (_oidc_strcmp(json_string_value(val), spec_c) == 0)
 			return TRUE;
 
 		/* see if it is a integer and it equals the Require'd value */
 	} else if (json_is_integer(val)) {
 
-		if (json_integer_value(val) == atoi(spec_c))
+		if (json_integer_value(val) == _oidc_str_to_int(spec_c))
 			return TRUE;
 
 		/* see if it is a boolean and it (case-insensitively) matches the Require'd value */
 	} else if (json_is_boolean(val)) {
 
-		if (apr_strnatcmp(json_is_true(val) ? "true" : "false", spec_c) == 0)
+		if (_oidc_strcmp((json_is_true(val) ? "true" : "false"), spec_c) == 0)
 			return TRUE;
 
 		/* if it is an array, we'll walk it */
@@ -86,7 +78,7 @@ static apr_byte_t oidc_authz_match_value(request_rec *r, const char *spec_c,
 		/* compare the claim values */
 		for (i = 0; i < json_array_size(val); i++) {
 
-			json_t *elem = json_array_get(val, i);
+			elem = json_array_get(val, i);
 
 			if (json_is_string(elem)) {
 				/*
@@ -94,61 +86,63 @@ static apr_byte_t oidc_authz_match_value(request_rec *r, const char *spec_c,
 				 * whitespace). At this point, spec_c points to the
 				 * NULL-terminated value pattern.
 				 */
-				if (apr_strnatcmp(json_string_value(elem), spec_c) == 0)
+				if (_oidc_strcmp(json_string_value(elem), spec_c) == 0)
 					return TRUE;
 
 			} else if (json_is_boolean(elem)) {
 
-				if (apr_strnatcmp(
-						json_is_true(elem) ? "true" : "false", spec_c) == 0)
+				if (_oidc_strcmp((json_is_true(elem) ? "true" : "false"),
+						spec_c) == 0)
 					return TRUE;
 
 			} else if (json_is_integer(elem)) {
 
-				if (json_integer_value(elem) == atoi(spec_c))
+				if (json_integer_value(elem) == _oidc_str_to_int(spec_c))
 					return TRUE;
 
 			} else {
 
 				oidc_warn(r,
 						"unhandled in-array JSON object type [%d] for key \"%s\"",
-						elem->type, (const char * ) key);
+						elem->type, (const char* ) key);
 			}
 
 		}
 
 	} else {
 		oidc_warn(r, "unhandled JSON object type [%d] for key \"%s\"",
-				val->type, (const char * ) key);
+				val->type, (const char* ) key);
 	}
 
 	return FALSE;
 }
 
-static apr_byte_t oidc_authz_match_expression(request_rec *r,
-		const char *spec_c, json_t *val) {
-	const char *errorptr;
-	int erroffset;
-	pcre *preg;
+static apr_byte_t oidc_authz_match_expression(request_rec *r, const char *spec_c, const json_t *val) {
+	apr_byte_t rc = FALSE;
+	struct oidc_pcre *preg = NULL;
+	char *error_str = NULL;
 	int i = 0;
 
 	/* setup the regex; spec_c points to the NULL-terminated value pattern */
-	preg = pcre_compile(spec_c, 0, &errorptr, &erroffset, NULL);
+	preg = oidc_pcre_compile(r->pool, spec_c, &error_str);
 
 	if (preg == NULL) {
-		oidc_error(r, "pattern [%s] is not a valid regular expression", spec_c);
-		pcre_free(preg);
-		return FALSE;
+		oidc_error(r, "pattern [%s] is not a valid regular expression: %s", spec_c, error_str);
+		goto end;
 	}
 
 	/* see if the claim is a literal string */
 	if (json_is_string(val)) {
 
+		error_str = NULL;
 		/* PCRE-compare the string value against the expression */
-		if (pcre_exec(preg, NULL, json_string_value(val),
-				(int) strlen(json_string_value(val)), 0, 0, NULL, 0) == 0) {
-			pcre_free(preg);
-			return TRUE;
+		if (oidc_pcre_exec(r->pool, preg, json_string_value(val), (int) _oidc_strlen(json_string_value(val)), &error_str)
+				> 0) {
+			oidc_debug(r, "value \"%s\" matched regex \"%s\"", json_string_value(val), spec_c);
+			rc = TRUE;
+			goto end;
+		} else if (error_str) {
+			oidc_debug(r, "pcre error (string): %s", error_str);
 		}
 
 		/* see if the claim value is an array */
@@ -160,27 +154,34 @@ static apr_byte_t oidc_authz_match_expression(request_rec *r,
 			json_t *elem = json_array_get(val, i);
 			if (json_is_string(elem)) {
 
+				error_str = NULL;
 				/* PCRE-compare the string value against the expression */
-				if (pcre_exec(preg, NULL, json_string_value(elem),
-						(int) strlen(json_string_value(elem)), 0, 0,
-						NULL, 0) == 0) {
-					pcre_free(preg);
-					return TRUE;
+				if (oidc_pcre_exec(r->pool, preg, json_string_value(elem), (int) _oidc_strlen(json_string_value(elem)), &error_str)
+						> 0) {
+					oidc_debug(r, "array value \"%s\" matched regex \"%s\"", json_string_value(elem), spec_c);
+					rc = TRUE;
+					goto end;
+				} else if (error_str) {
+					oidc_pcre_free_match(preg);
+					oidc_debug(r, "pcre error (array): %s", error_str);
 				}
 			}
 		}
 	}
 
-	pcre_free(preg);
+end:
 
-	return FALSE;
+	if (preg)
+		oidc_pcre_free(preg);
+
+	return rc;
 }
 
 /*
  * see if a the Require value matches with a set of provided claims
  */
-apr_byte_t oidc_authz_match_claim(request_rec *r, const char * const attr_spec,
-		const json_t * const claims) {
+apr_byte_t oidc_authz_match_claim(request_rec *r, const char *const attr_spec,
+		json_t *claims) {
 
 	const char *key;
 	json_t *val;
@@ -190,15 +191,15 @@ apr_byte_t oidc_authz_match_claim(request_rec *r, const char * const attr_spec,
 		return FALSE;
 
 	/* loop over all of the user claims */
-	void *iter = json_object_iter((json_t*) claims);
+	void *iter = json_object_iter(claims);
 	while (iter) {
 
 		key = json_object_iter_key(iter);
 		val = json_object_iter_value(iter);
 
-		oidc_debug(r, "evaluating key \"%s\"", (const char * ) key);
+		oidc_debug(r, "evaluating key \"%s\"", (const char* ) key);
 
-		const char *attr_c = (const char *) key;
+		const char *attr_c = key;
 		const char *spec_c = attr_spec;
 
 		/* walk both strings until we get to the end of either or we find a differing character */
@@ -252,7 +253,7 @@ apr_byte_t oidc_authz_match_claim(request_rec *r, const char * const attr_spec,
 
 		}
 
-		iter = json_object_iter_next((json_t *) claims, iter);
+		iter = json_object_iter_next(claims, iter);
 	}
 
 	return FALSE;
@@ -260,71 +261,45 @@ apr_byte_t oidc_authz_match_claim(request_rec *r, const char * const attr_spec,
 
 #ifdef USE_LIBJQ
 
-static apr_byte_t jq_parse(request_rec *r, jq_state *jq, struct jv_parser *parser) {
-	apr_byte_t rv = FALSE;
-	jv value;
-
-	while (jv_is_valid((value = jv_parser_next(parser)))) {
-		jq_start(jq, value, 0);
-		jv result;
-
-		while (jv_is_valid(result = jq_next(jq))) {
-			jv dumped = jv_dump_string(result, 0);
-			const char *str = jv_string_value(dumped);
-			oidc_debug(r, "dumped: %s", str);
-			rv = (apr_strnatcmp(str, "true") == 0);
-		}
-
-		jv_free(result);
-	}
-
-	if (jv_invalid_has_msg(jv_copy(value))) {
-		jv msg = jv_invalid_get_msg(value);
-		oidc_error(r, "invalid: %s", jv_string_value(msg));
-		jv_free(msg);
-		rv = FALSE;
-	} else {
-		jv_free(value);
-	}
-
-	return rv;
-}
-
 /*
  * see if a the Require value matches a configured expression
  */
 apr_byte_t oidc_authz_match_claims_expr(request_rec *r,
-		const char * const attr_spec, const json_t * const claims) {
+		const char *const attr_spec, json_t *claims) {
 	apr_byte_t rv = FALSE;
+	const char *str = NULL;
 
 	oidc_debug(r, "enter: '%s'", attr_spec);
 
-	jq_state *jq = jq_init();
-	if (jq_compile(jq, attr_spec) == 0) {
-		jq_teardown(&jq);
-		return FALSE;
-	}
-
-	struct jv_parser *parser = jv_parser_new(0);
-
-	char *buf = oidc_util_encode_json_object(r, (json_t *)claims, 0);
-	jv_parser_set_buf(parser, buf, strlen(buf), 0);
-	rv = jq_parse(r, jq, parser);
-
-	jv_parser_free(parser);
-	jq_teardown(&jq);
+	str = oidc_util_jq_filter(r, oidc_util_encode_json_object(r, claims,
+			JSON_PRESERVE_ORDER | JSON_COMPACT), attr_spec);
+	rv = (_oidc_strcmp(str, "true") == 0);
 
 	return rv;
 }
 
 #endif
 
-#if MODULE_MAGIC_NUMBER_MAJOR < 20100714
+#define OIDC_AUTHZ_ERROR "OIDC_AUTHZ_ERROR"
+
+static void oidc_authz_error_add(request_rec *r, const char *msg) {
+	const char *envvar = NULL;
+	if (r->subprocess_env != NULL) {
+		envvar = apr_table_get(r->subprocess_env, OIDC_AUTHZ_ERROR);
+		oidc_debug(r, "adding %s to environment variable %s=%s", msg,
+				OIDC_AUTHZ_ERROR, envvar);
+		apr_table_set(r->subprocess_env, OIDC_AUTHZ_ERROR,
+				apr_psprintf(r->pool, "%s%s%s", envvar ? envvar : "",
+						envvar ? "," : "", msg ? msg : ""));
+	}
+}
+
+#if !(HAVE_APACHE_24)
 
 /*
  * Apache <2.4 authorization routine: match the claims from the authenticated user against the Require primitive
  */
-int oidc_authz_worker22(request_rec *r, const json_t * const claims,
+int oidc_authz_worker22(request_rec *r, json_t *claims,
 		const require_line * const reqs, int nelts) {
 	const int m = r->method_number;
 	const char *token;
@@ -387,6 +362,8 @@ int oidc_authz_worker22(request_rec *r, const json_t * const claims,
 				return OK;
 			}
 		}
+
+		oidc_authz_error_add(r, requirement);
 	}
 
 	/* if there weren't any "Require claim" directives, we're irrelevant */
@@ -402,7 +379,8 @@ int oidc_authz_worker22(request_rec *r, const json_t * const claims,
 	}
 
 	/* log the event, also in Apache speak */
-	oidc_debug(r, "authorization denied for client session");
+	oidc_debug(r, "authorization denied for require claims (0/%d): '%s'", nelts, nelts > 0 ? reqs[0].requirement : "(none)");
+
 	ap_note_auth_failure(r);
 
 	return HTTP_UNAUTHORIZED;
@@ -413,8 +391,9 @@ int oidc_authz_worker22(request_rec *r, const json_t * const claims,
 /*
  * Apache >=2.4 authorization routine: match the claims from the authenticated user against the Require primitive
  */
-authz_status oidc_authz_worker24(request_rec *r, const json_t * const claims,
-		const char *require_args, const void *parsed_require_args, oidc_authz_match_claim_fn_type match_claim_fn) {
+authz_status oidc_authz_worker24(request_rec *r, json_t *claims,
+		const char *require_args, const void *parsed_require_args,
+		oidc_authz_match_claim_fn_type match_claim_fn) {
 
 	int count_oauth_claims = 0;
 	const char *t, *w, *err = NULL;
@@ -431,7 +410,8 @@ authz_status oidc_authz_worker24(request_rec *r, const json_t * const claims,
 	if (expr) {
 		t = ap_expr_str_exec(r, expr, &err);
 		if (err) {
-			oidc_error(r, "could not evaluate expression '%s': %s", require_args, err);
+			oidc_error(r, "could not evaluate expression '%s': %s",
+					require_args, err);
 			return AUTHZ_DENIED;
 		}
 	} else {
@@ -458,6 +438,10 @@ authz_status oidc_authz_worker24(request_rec *r, const json_t * const claims,
 		oidc_warn(r,
 				"'require claim/expr' missing specification(s) in configuration, denying");
 	}
+
+	oidc_debug(r, "could not match require claim expression '%s'",
+			require_args);
+	oidc_authz_error_add(r, require_args);
 
 	return AUTHZ_DENIED;
 }

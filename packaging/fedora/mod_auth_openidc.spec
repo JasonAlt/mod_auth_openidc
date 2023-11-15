@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
-Version:	2.4.9.4g
-Release:	4%{?dist}
+Version:	2.4.14.4g
+Release:	1%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
@@ -74,7 +74,7 @@ make %{?_smp_mflags}
 
 %install
 mkdir -p $RPM_BUILD_ROOT%{_httpd_moddir}
-make install MODULES_DIR=$RPM_BUILD_ROOT%{_httpd_moddir}
+make install DESTDIR=$RPM_BUILD_ROOT
 
 install -m 755 -d $RPM_BUILD_ROOT%{_httpd_modconfdir}
 %if %{?suse_version}%{!?suse_version:0} == 0
@@ -92,6 +92,8 @@ echo 'LoadModule auth_openidc_module %{_libdir}/apache2/mod_auth_openidc.so' > \
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
 
 %changelog
+* Wed Nov 15 2023 Globus Toolkit <support@globus.org> 2.4.14.4g-1
+- Resync with upstream
 * Fri Aug 4 2023 Globus Toolkit <support@globus.org> 2.4.9.4g-3
 - Update packaging to work with SUSE
 * Fri Nov 12 2021 Globus Toolkit <support@globus.org> 2.4.9.4g-2
@@ -100,7 +102,7 @@ echo 'LoadModule auth_openidc_module %{_libdir}/apache2/mod_auth_openidc.so' > \
 - Merged zmartzone 2.4.9.4
 * Wed May 05 2021 Globus Toolkit <support@globus.org> 2.3.2k
 - Rebuild for new ubuntu and fedora targets
-* Wed Jun 09 2020 Globus Toolkit <support@globus.org> 2.3.2j
+* Wed Jun 10 2020 Globus Toolkit <support@globus.org> 2.3.2j
 - Pass list of objects through as claims
 
 * Thu Jun 04 2020 Globus Toolkit <support@globus.org> 2.3.2i

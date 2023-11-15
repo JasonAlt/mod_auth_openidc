@@ -2,3 +2,6 @@
 /*.o
 /*.slo
 /.libs
+/.deps/
+/.dirstamp
+/hiredis-*
