@@ -1,2 +1,2 @@
-mod src/.libs/mod_auth_openidc.so
+mod .libs/mod_auth_openidc.so
 mod debian/auth_openidc.load

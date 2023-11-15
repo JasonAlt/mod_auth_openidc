@@ -10,6 +10,7 @@ URL:		https://github.com/pingidentity/mod_auth_openidc
 Source0:	https://github.com/pingidentity/mod_auth_openidc/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires:	gcc
+BuildRequires:	libtool
 %if %{?suse_version}%{!?suse_version:0} == 0
 BuildRequires:	httpd-devel
 %else
