@@ -67,7 +67,7 @@ pipeline {
                             echo "mock_build_targets=${mock_build_targets}"
                             echo "_deb=${_deb}"
                             CJOSE_EXCLUDE = mock_build_targets.findAll {
-                                it.startsWith("fedora-")
+                                it.startsWith("fedora-") || it == "el-9"
                             }
                             stash(name: env.CJOSE_SOURCE_STASH, includes: "${env.CJOSE_SOURCE_STASH}/**/*")
                         }
