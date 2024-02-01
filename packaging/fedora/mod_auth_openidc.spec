@@ -1,6 +1,6 @@
 Name:		mod_auth_openidc
 Version:	2.4.14.4g
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 Vendor:         %{?GLOBUS_VENDOR}%{!?GLOBUS_VENDOR:undefined}
 Epoch:          1
