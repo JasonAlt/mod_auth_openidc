@@ -2441,7 +2441,20 @@ char* oidc_dir_cfg_unauthz_arg(request_rec *r) {
 const char* oidc_dir_cfg_path_auth_request_params(request_rec *r) {
 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
 			&auth_openidc_module);
-	return oidc_util_apr_expr_exec(r, dir_cfg->path_auth_request_expr, TRUE);
+
+	/* Globus Changes: Add any session params set by mod_globus in OIDCAuthRequestParams */
+	// return oidc_util_apr_expr_exec(r, dir_cfg->path_auth_request_expr, TRUE);
+
+	const char * dir_params = oidc_util_apr_expr_exec(r, dir_cfg->path_auth_request_expr, TRUE);
+	char *r_params = (char *) apr_table_get(r->notes, OIDCAuthRequestParams);
+
+	if (r_params == NULL)
+		return dir_params;
+
+	if (dir_params == NULL)
+		return r_params;
+
+	return apr_psprintf(r->pool, "%s&%s", r_params, dir_params);
 }
 
 static apr_array_header_t *pass_userinfo_as_default = NULL;
